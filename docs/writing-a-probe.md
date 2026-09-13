@@ -116,8 +116,8 @@ Every one is binary.
 | `radiative_identity` | upward longwave equals what the reported surface temperature emits plus the reflected downward longwave, at every step, within the larger of a relative tolerance and an absolute floor; emissivity comes from `static.json` | one run, instantaneous values |
 | `soil_heat_storage` | interval boundary heat input agrees with fixed-layer temperature change and prescribed heat capacity | one run, separate heating/recovery phases |
 | `routing_conservation` | the channel store is non-negative and never exceeds `max_lag_days` of the largest recent runoff | one run |
-| `rating_monotonic` | stage is single-valued in discharge: within each discharge bin the reported stage spans no more than the tolerance, and the bin means rise with discharge | one run |
-| `rating_loop` | where the gauge loops against the reach's store, the loop must be small enough to be noise or run the right way: at the same storage the rising limb sits lower than the falling one | one run |
+| `rating_monotonic` | stage does not fall against its running maximum as the abscissa rises: equal-count bin medians are taken over the abscissa and the summed running-maximum deficit is compared with the larger of an explicit `tolerance` and 2% of the rating's span (which is the default when `tolerance` is 0) | one run |
+| `rating_loop` | where the gauge loops against the reach's store, the loop must be small enough to be noise or run the right way: at the same storage the rising limb sits lower than the falling one. A single-valued rating, or a loop below `min_loop_m` with an inconsistent sign across bins, is read as "no loop" and passes | one run |
 
 Picking a denominator for `closure` and `regime_transfer`:
 
@@ -264,7 +264,7 @@ The reference models available today:
 | `reference_sublimating` | loses 40% of every snowfall unreported | `phase_invariance` |
 | `reference_thirsty` | evaporates a fixed share of its soil store whatever the demand | `demand_consistency` |
 | `reference_stuck_router` | a routing kernel summing to 0.9 | `routing_conservation` |
-| `reference_rating` | the bucket with a real rating curve: discharge through a triangular unit hydrograph, stage solved from it with Manning's equation in a rectangular reach | nothing, it must pass the stage-discharge probe |
+| `reference_rating` | the bucket with a real rating curve: yield enters a shallow floodplain and a deep channel reservoir, and the stage is the depth the channel's volume makes in a fixed bed | must pass `momentum/stage-discharge-monotonic` |
 | `reference_rating_drift` | derives its stage from a running maximum of discharge, so the gauge ratchets up and never comes back down | `rating_monotonic` |
 | `reference_rating_inverted` | reads the loop backwards, high while the flood is arriving and low once it is leaving | `rating_loop` |
 | `reference_flat_stage` | reports a constant stage, so there is no rating and no loop | `non_degenerate` |

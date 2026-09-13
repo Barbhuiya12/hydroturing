@@ -44,7 +44,7 @@ from pathlib import Path
 
 from sacsma_snow17 import SacState, SnowState, gamma_uh, sac1, sac_storage, snow17
 
-COLUMNS = ["time", "pr", "evspsbl", "mrro", "gwex", "mrso", "snw", "canopy", "gw", "channel", "stage"]
+COLUMNS = ["time", "pr", "evspsbl", "mrro", "dis", "gwex", "mrso", "snw", "canopy", "gw", "channel", "stage"]
 MODEL = {"name": "sacsma_snow17", "version": "1.0.0"}
 STEP_HOURS = {"PT1D": 24, "PT1H": 1}
 
@@ -77,7 +77,7 @@ def surface_pressure_hpa(elev_m: float) -> float:
     return 33.86 * (29.9 - 0.335 * e + 0.00022 * e ** 2.4)
 
 
-def stage_of(channel_mm: float, lower_mm: float, static: dict, dt_days: float) -> float:
+def stage_of(mrro_mm_per_day: float, lower_mm: float, static: dict, dt_days: float) -> float:
     """The level a gauge in the reach would read, in metres.
 
     A diagnostic rather than a store, reported so that
@@ -90,11 +90,15 @@ def stage_of(channel_mm: float, lower_mm: float, static: dict, dt_days: float) -
         h = ( Q * n / (w * sqrt(S)) )^(3/5)
 
     The flow is what both of the model's lower reservoirs are draining:
-    `channel` is the water the unit hydrograph has not yet released, and
-    `gw` is the lower zone, draining over months. They have different time
-    constants and the gauge sees both, which is what lets the level on the
-    rising limb sit below the level the same flow makes once the lower zone
-    has drained.
+    `mrro` is what the unit hydrograph has released, and the lower zone is
+    draining over months behind it. They have different time constants and
+    the gauge sees both, which is what lets the level on the rising limb sit
+    below the level the same flow makes once the lower zone has drained.
+
+    Both terms are flow *rates*, in mm/day: a stage is a reading a gauge would
+    give at an instant, so it cannot depend on how often the model writes a
+    row. An earlier version divided the stores — depths — by `dt`, which made
+    the same reach read 78x deeper at PT1M than at PT1D.
     """
     area_km2 = float(static.get("area_km2", 0.0))
     width_m = float(static.get("width_m", DEFAULT_WIDTH_M))
@@ -102,8 +106,8 @@ def stage_of(channel_mm: float, lower_mm: float, static: dict, dt_days: float) -
     manning_n = float(static.get("manning_n", DEFAULT_MANNING_N))
     if area_km2 <= 0.0 or width_m <= 0.0 or slope <= 0.0 or dt_days <= 0.0:
         return 0.0
-    drain_mm_per_step = max(channel_mm, 0.0) / dt_days + max(lower_mm, 0.0) / dt_days
-    q_m3s = drain_mm_per_step * 1e-3 * area_km2 * 1e6 / SECONDS_PER_DAY
+    lower_mm_per_day = max(lower_mm, 0.0) / dt_days
+    q_m3s = (max(mrro_mm_per_day, 0.0) + lower_mm_per_day) * 1e-3 * area_km2 * 1e6 / SECONDS_PER_DAY
     if q_m3s <= 0.0:
         return 0.0
     return (q_m3s * manning_n / (width_m * slope ** 0.5)) ** 0.6
@@ -193,7 +197,18 @@ def simulate(forcing: list[dict], static: dict, timestep: str) -> tuple[list[dic
         cum_in += g
         cum_out += row["mrro"] * dt_days
         row["channel"] = cum_in - cum_out
-        row["stage"] = stage_of(row["channel"], row["gw"], static, dt_days)
+        # The discharge the gauge reads is what the hydrograph has released
+        # plus the lower zone still draining, in m3/s, so
+        # `momentum/stage-discharge-monotonic` can score the rating against
+        # discharge rather than against the store.
+        row["dis"] = (
+            (row["mrro"] + max(row["gw"], 0.0) / dt_days)
+            * 1e-3
+            * static["area_km2"]
+            * 1e6
+            / SECONDS_PER_DAY
+        )
+        row["stage"] = stage_of(row["mrro"], row["gw"], static, dt_days)
     notes = {
         "port": "sacsma_snow17.py, checked against the f2py build of the Fortran",
         "parameters": {"sac": sac, "snow17": snow, "unit_hydrograph": UH},

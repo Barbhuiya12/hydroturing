@@ -29,10 +29,18 @@ would corrupt every closure test in the suite.
 
 | Criterion | Asserts |
 | --- | --- |
-| `rating_monotonic` | stage does not fall against the running maximum as discharge rises |
-| `rating_loop` | at matching discharge, the rising limb sits below the falling limb |
-| `non_degenerate` | discharge and stage vary with the weather |
+| `rating_monotonic` | stage does not fall against the running maximum as the abscissa rises |
+| `rating_loop` | at matching water in transit, the rising limb sits below the falling limb |
+| `non_degenerate` | the stage varies with the weather |
 
 Must-fail: `reference_rating_drift`, whose stage is a running maximum of its
 own discharge; `reference_rating_inverted`, which reads the loop backwards;
 and `reference_flat_stage`, whose gauge reports a constant.
+
+The probe requires `dis`, so the rating is drawn against discharge and not
+against a storage: a model that reports only its channel store is read on
+that store instead, and the criterion says so in its reason rather than
+claiming a discharge check it did not make. `reference_rating` is in
+`must_pass` — with two separated time constants it is the only baseline that
+traces a correctly-signed loop, and it is what keeps the loop criterion's
+"the right way" branch live rather than dead.

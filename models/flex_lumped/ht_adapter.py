@@ -42,7 +42,7 @@ import json
 import sys
 from pathlib import Path
 
-COLUMNS = ["time", "pr", "evspsbl", "mrro", "gwex", "mrso", "snw", "canopy", "gw", "channel", "stage"]
+COLUMNS = ["time", "pr", "evspsbl", "mrro", "dis", "gwex", "mrso", "snw", "canopy", "gw", "channel", "stage"]
 MODEL = {"name": "flex_lumped", "version": "1.0.0"}
 
 # Default reach geometry, used when the catchment does not hand one over.
@@ -94,7 +94,7 @@ def per_step(fraction_per_day: float, dt: float) -> float:
     return 1.0 - (1.0 - fraction_per_day) ** dt
 
 
-def stage_of(channel_mm: float, gw_mm: float, static: dict, dt: float) -> float:
+def stage_of(mrro_mm_per_day: float, gw_mm: float, static: dict, dt: float) -> float:
     """The level a gauge in the reach would read, in metres.
 
     A stage is a *length* read off a staff gauge in a cross-section, so it is
@@ -107,11 +107,17 @@ def stage_of(channel_mm: float, gw_mm: float, static: dict, dt: float) -> float:
         h   = ( Q * n / (w * sqrt(S)) )^(3/5)
 
     The flow is the reach's own drain plus the baseflow its groundwater store
-    is releasing: `channel` is the water in transit that returns the flood,
-    `gw` is the water still on its way down the catchment. The two have
-    different time constants, and the gauge sees both, which is why the level
-    on the rising limb sits below the level the same flow makes once the
-    store behind it has drained.
+    is releasing: `mrro` is the water in transit that returns the flood, `gw`
+    is the water still on its way down the catchment. The two have different
+    time constants, and the gauge sees both, which is why the level on the
+    rising limb sits below the level the same flow makes once the store behind
+    it has drained.
+
+    Both terms are flow *rates*, in mm/day: a stage is a reading a gauge would
+    give at an instant, so it cannot depend on how often the model chooses to
+    write a row. An earlier version divided the stores — depths — by `dt` to
+    make a rate, which made the same reach read 78x deeper at PT1M than at
+    PT1D. `mrro` is already a rate and `gw` is turned into one below.
     """
     area_km2 = float(static.get("area_km2", 0.0))
     width_m = float(static.get("width_m", DEFAULT_WIDTH_M))
@@ -119,10 +125,10 @@ def stage_of(channel_mm: float, gw_mm: float, static: dict, dt: float) -> float:
     manning_n = float(static.get("manning_n", DEFAULT_MANNING_N))
     if area_km2 <= 0.0 or width_m <= 0.0 or slope <= 0.0 or dt <= 0.0:
         return 0.0
-    # Both stores are depths over the catchment; a store draining at `x` mm
-    # per step is a mean flow of x * area / dt.
-    drain_mm_per_step = max(channel_mm, 0.0) / dt + max(gw_mm, 0.0) / dt
-    q_m3s = drain_mm_per_step * 1e-3 * area_km2 * 1e6 / SECONDS_PER_DAY
+    # The reach's own drain is already a rate; the groundwater store contributes
+    # at the rate it releases over the step it was reported for.
+    gw_mm_per_day = max(gw_mm, 0.0) / dt
+    q_m3s = (max(mrro_mm_per_day, 0.0) + gw_mm_per_day) * 1e-3 * area_km2 * 1e6 / SECONDS_PER_DAY
     if q_m3s <= 0.0:
         return 0.0
     return (q_m3s * manning_n / (width_m * slope ** 0.5)) ** 0.6
@@ -227,7 +233,18 @@ def simulate(forcing: list[dict], static: dict, dt: float) -> list[dict]:
         cum_gen += g
         cum_out += row["mrro"] * dt
         row["channel"] += cum_gen - cum_out
-        row["stage"] = stage_of(row["channel"], row["gw"], static, dt)
+        # The discharge the gauge reads is the reach's own outflow plus the
+        # baseflow still arriving: the same flow `stage_of` is handed, reported
+        # in m3/s so `momentum/stage-discharge-monotonic` can score the rating
+        # against discharge rather than against the store.
+        row["dis"] = (
+            (row["mrro"] + max(row["gw"], 0.0) / dt)
+            * 1e-3
+            * static["area_km2"]
+            * 1e6
+            / SECONDS_PER_DAY
+        )
+        row["stage"] = stage_of(row["mrro"], row["gw"], static, dt)
     return rows
 
 

@@ -70,11 +70,22 @@ MIN_SPAN_M = 1e-9
 def _discharge(w) -> tuple[np.ndarray, str]:
     """The discharge the rating is against, and what it came from.
 
-    `dis` is the honest answer, in m3/s. A probe that scores a reach without
-    asking for `dis` is not really scoring a rating curve, but the momentum
-    probes do carry `channel` as a store, and a store's tendency is a flow,
-    so that is the fallback: the step-over-step change of the channel store,
-    which for a linear routing is proportional to what is leaving the reach.
+    `dis` is the honest answer, in m3/s. When a model does not report it the
+    criterion still has to read *something* against the stage, and the only
+    other quantity in a momentum probe is the `channel` store — the water in
+    transit. The store is deliberately returned as-is rather than differenced:
+    the limb labels in `rating_loop` are decided by the sign of this array's
+    step-over-step change, and the store's own tendency is the reach filling
+    or emptying, which is the reading the probe documents. Differencing here
+    would relabel the limbs against the reach's lag and silently change what
+    "rising limb" means between models that report `dis` and models that do
+    not.
+
+    The second element of the return is the provenance, and it is not
+    cosmetic: a probe that reads the rating off the store is comparing stage
+    with storage, not with discharge, and `rating_monotonic` puts that string
+    in its reason so the archived verdict does not claim a check it did not
+    make. A probe that needs a genuine rating curve should require `dis`.
     """
     if "dis" in w.table.columns:
         return np.asarray(w.table["dis"], dtype=float), "dis"
@@ -150,21 +161,35 @@ def _rating_scatter(stage: np.ndarray, x: np.ndarray) -> float:
     # is: the two steps are at the same discharge, so a single-valued rating
     # must give them the same stage. Duplicated abscissae are rare in
     # continuous output but are exactly where a loop is unambiguous.
+    #
+    # Ties are one contribution to the residual, not the whole of it. A
+    # short-circuit here would throw away every non-tied pair — the majority
+    # of the record — so a rating that is wildly non-single-valued everywhere
+    # except at a handful of coincident steps would read as if it were a
+    # function. Worse, where the tied pair itself has no height difference the
+    # short-circuit returns zero and the rating looks perfectly single-valued.
+    # Both contributions are therefore measured and the larger is reported.
     dx = np.diff(xs)
     dh = np.abs(np.diff(hs))
     coincident = dx <= 0.0
-    if coincident.any():
-        return float(dh[coincident].max())
+    tie = float(dh[coincident].max()) if coincident.any() else 0.0
 
     # Otherwise, subtract the local gradient over each adjacent pair: the
     # part of the stage change the abscissa change already explains.
-    slope = dh / dx
-    # The median slope is the reach's typical rating gradient; a pair whose
-    # stage move exceeds that gradient over its own abscissa step is the
-    # part that no single-valued rating accounts for.
-    typical = float(np.median(slope))
-    residual = dh - typical * dx
-    return float(np.maximum(0.0, residual).max())
+    separated = ~coincident
+    if separated.any():
+        sdx = dx[separated]
+        sdh = dh[separated]
+        slope = sdh / sdx
+        # The median slope is the reach's typical rating gradient; a pair whose
+        # stage move exceeds that gradient over its own abscissa step is the
+        # part that no single-valued rating accounts for.
+        typical = float(np.median(slope))
+        residual = sdh - typical * sdx
+        gradient = float(np.maximum(0.0, residual).max())
+    else:
+        gradient = 0.0
+    return max(tie, gradient)
 
 
 def _binned(frame: pd.DataFrame, bins: int) -> tuple[np.ndarray, np.ndarray]:
@@ -238,24 +263,35 @@ def rating_monotonic(run: RunResult, probe: ProbeSpec, params: dict) -> Criterio
     # rating's own span — the same reasoning as the loop's floor and for the
     # same reason: a deflection worth a fraction of a percent of the reach is
     # sampling noise, while a curve that steps down through a visible share of
-    # its range is the failure the criterion exists to catch. An explicit
-    # `tolerance` in metres overrides the floor when the physics is off by
-    # exactly the amount the criterion should be read against.
+    # its range is the failure the criterion exists to catch. The floor is the
+    # default, not a hard minimum: an explicit `tolerance` in metres is
+    # honoured as written, tighter or looser, matching `rating_loop`'s
+    # `min_loop_m`.
     span = float(np.max(stage) - np.min(stage)) if len(stage) else 0.0
     floor = max(MIN_SPAN_M, MIN_MONOTONIC_FRACTION * span)
-    tolerance = max(tolerance, floor) if tolerance > 0.0 else floor
+    # An explicit positive `tolerance` is honoured as written, including when
+    # it is tighter than the floor: `rating_loop`'s `min_loop_m` is a true
+    # override and this is the same knob, so a probe that names the deflection
+    # it will accept gets it. The floor applies only where the probe leaves
+    # the tolerance at zero.
+    tolerance = tolerance if tolerance > 0.0 else floor
 
     ok = deficit <= tolerance
+    # Name what was actually compared. Reading the rating off the channel
+    # store is comparing the gauge with storage, not with discharge, and the
+    # archived reason must not assert a discharge check the criterion did not
+    # make.
+    against = "discharge" if q_source == "dis" else f"the {q_source} store"
     return CriterionResult(
         name="rating_monotonic",
         status=PASS if ok else FAIL,
         value=deficit,
         threshold=tolerance,
         message=(
-            f"stage rises monotonically with discharge ({deficit:.4f} m of deficit "
+            f"stage rises monotonically with {against} ({deficit:.4f} m of deficit "
             f"over {len(qb)} bins, source {q_source}, tolerance {tolerance:.4f} m)"
             if ok
-            else f"stage falls as discharge rises: {deficit:.4f} m of running-maximum "
+            else f"stage falls as {against} rises: {deficit:.4f} m of running-maximum "
             f"deficit over {len(qb)} bins, source {q_source}, "
             f"tolerance {tolerance:.4f} m"
         ),
@@ -375,9 +411,20 @@ def rating_loop(run: RunResult, probe: ProbeSpec, params: dict) -> CriterionResu
     # flood should not outvote the ten that carry the routine.
     signed = hb_rise - hb_fall
     loop_signed = float(np.median(signed)) if len(signed) else 0.0
-    # The criterion fails on the unphysical direction, so the reported value
-    # is how far the typical bin sits above the fall.
+    # The loop is a signed quantity: positive where the rise sits above the
+    # fall. The criterion fails only on that unphysical direction, so the
+    # value it reports against `tolerance` is the *upward* part of the median,
+    # clipped at zero.
+    #
+    # The size of the loop, though, is the magnitude of the median whatever
+    # its sign: a reach that separates the limbs by 0.9 m in the physical
+    # direction has a loop of 0.9 m, and the "is it big enough to read"
+    # question has to be asked of that number. Reporting the clipped value as
+    # the size would make every correctly-signed loop read as zero and take
+    # the no-loop escape below, which is how a gauge with a real hysteresis
+    # came to be reported as having none.
     loop = max(0.0, loop_signed)
+    loop_size = abs(loop_signed)
 
     # A loop can only be read where the two limbs are actually distinguishable,
     # and the honest way to ask that is to ask whether the model's rating is
@@ -433,13 +480,13 @@ def rating_loop(run: RunResult, probe: ProbeSpec, params: dict) -> CriterionResu
     inverted_fraction = inverted / len(signed) if len(signed) else 0.0
     consistent = inverted_fraction >= MAJORITY_FRACTION
 
-    if scatter <= min_loop or (loop <= min_loop and not consistent):
+    if scatter <= min_loop or (loop_size <= min_loop and not consistent):
         reason = (
             f"{x_source} fixes stage to within {scatter:.2e} m, so the rating is "
             f"single-valued"
             if scatter <= min_loop
-            else f"the two limbs differ by only {loop:.2e} m "
-            f"({loop / span:.2%} of the {span:.2f} m rating) and disagree in sign "
+            else f"the two limbs differ by only {loop_size:.2e} m "
+            f"({loop_size / span:.2%} of the {span:.2f} m rating) and disagree in sign "
             f"across bins ({inverted} of {len(qb)} inverted), which is pairing "
             f"noise rather than a loop"
         )
@@ -454,6 +501,8 @@ def rating_loop(run: RunResult, probe: ProbeSpec, params: dict) -> CriterionResu
             ),
             diagnostics={
                 "loop_m": 0.0,
+                "loop_size_m": loop_size,
+                "loop_median_m": loop_signed,
                 "bins": len(qb),
                 "abscissa": x_source,
                 "limb_direction_by": q_source,
@@ -482,6 +531,7 @@ def rating_loop(run: RunResult, probe: ProbeSpec, params: dict) -> CriterionResu
         ),
         diagnostics={
             "loop_m": loop,
+            "loop_size_m": loop_size,
             "loop_median_m": loop_signed,
             "inverted_bins": inverted,
             "bins": len(qb),

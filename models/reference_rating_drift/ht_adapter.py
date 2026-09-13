@@ -139,7 +139,7 @@ def simulate(forcing, static, dt_days=1.0):
             "mrso": soil,
             "snw": swe,
             "canopy": canopy,
-            "channel": store + routed,
+            "channel": store,
             "stage": stage,
         })
     return rows

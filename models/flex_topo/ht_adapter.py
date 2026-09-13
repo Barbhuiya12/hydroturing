@@ -63,7 +63,7 @@ import json
 import sys
 from pathlib import Path
 
-COLUMNS = ["time", "pr", "evspsbl", "mrro", "gwex", "mrso", "snw", "canopy", "gw", "channel", "stage"]
+COLUMNS = ["time", "pr", "evspsbl", "mrro", "dis", "gwex", "mrso", "snw", "canopy", "gw", "channel", "stage"]
 MODEL = {"name": "flex_topo", "version": "1.0.0"}
 TIMESTEP_DAYS = {"PT1D": 1.0, "PT1H": 1.0 / 24.0, "PT15M": 1.0 / 96.0, "PT5M": 1.0 / 288.0, "PT1M": 1.0 / 1440.0}
 
@@ -114,21 +114,26 @@ def per_step(fraction_per_day: float, dt: float) -> float:
     return 1.0 - (1.0 - fraction_per_day) ** dt
 
 
-def stage_of(channel_mm: float, static: dict, dt: float) -> float:
+def stage_of(mrro_mm_per_day: float, static: dict, dt: float) -> float:
     """The level a gauge in the reach would read, in metres.
 
     A stage is a length read off a staff gauge in a cross-section, so it is
-    built from the water the reach holds rather than from a catchment depth,
-    and Manning's normal depth is the bridge between the two:
+    built from the water the reach is carrying rather than from a catchment
+    depth, and Manning's normal depth is the bridge between the two:
 
         h = ( Q * n / (w * sqrt(S)) )^(3/5)
 
-    The flow is the reach's own drain: `channel` carries the fast stores and
-    the water inside the triangular lag, and a store draining at `x` mm per
-    step is a mean flow of x * area / dt. The slow reservoir is deliberately
-    left out. It is the catchment's groundwater feeding the reach over weeks,
-    not water the reach holds, and folding it into the gauge would tie the
-    reading to the seasonal cycle instead of to the flood the reach carries.
+    The flow is the reach's own drain: `mrro` is what the fast stores and the
+    water inside the triangular lag are releasing. The slow reservoir is
+    deliberately left out. It is the catchment's groundwater feeding the reach
+    over weeks, not water the reach holds, and folding it into the gauge would
+    tie the reading to the seasonal cycle instead of to the flood the reach
+    carries.
+
+    The flow is a *rate*, in mm/day: a stage is a reading a gauge would give at
+    an instant, so it cannot depend on how often the model writes a row. An
+    earlier version divided the store — a depth — by `dt`, which made the same
+    reach read 78x deeper at PT1M than at PT1D.
     """
     area_km2 = float(static.get("area_km2", 0.0))
     width_m = float(static.get("width_m", DEFAULT_WIDTH_M))
@@ -136,8 +141,7 @@ def stage_of(channel_mm: float, static: dict, dt: float) -> float:
     manning_n = float(static.get("manning_n", DEFAULT_MANNING_N))
     if area_km2 <= 0.0 or width_m <= 0.0 or slope <= 0.0 or dt <= 0.0:
         return 0.0
-    drain_mm_per_step = max(channel_mm, 0.0) / dt
-    q_m3s = drain_mm_per_step * 1e-3 * area_km2 * 1e6 / SECONDS_PER_DAY
+    q_m3s = max(mrro_mm_per_day, 0.0) * 1e-3 * area_km2 * 1e6 / SECONDS_PER_DAY
     if q_m3s <= 0.0:
         return 0.0
     return (q_m3s * manning_n / (width_m * slope ** 0.5)) ** 0.6
@@ -293,7 +297,11 @@ def simulate(forcing: list[dict], static: dict, dt: float) -> list[dict]:
         cum_gen += g
         cum_out += row["mrro"] * dt
         row["channel"] += cum_gen - cum_out
-        row["stage"] = stage_of(row["channel"], static, dt)
+        # The discharge the gauge reads is the reach's own outflow, in m3/s, so
+        # `momentum/stage-discharge-monotonic` can score the rating against
+        # discharge rather than against the store.
+        row["dis"] = row["mrro"] * 1e-3 * static["area_km2"] * 1e6 / SECONDS_PER_DAY
+        row["stage"] = stage_of(row["mrro"], static, dt)
     return rows
 
 

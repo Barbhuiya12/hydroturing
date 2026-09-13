@@ -26,7 +26,7 @@ description: >
   budget is differenced over.
 
 requires:
-  fluxes: []
+  fluxes: [dis]
   states: [channel]
   diagnostics: [stage]
 
@@ -59,8 +59,17 @@ criteria:
 baselines:
   # The exact bucket has no reach to read, so it reports a stage it derives
   # from its own store, and the two FLEX models route through a triangular
-  # lag whose contents are the reach. All three are the real test.
-  must_pass: [reference_bucket, flex_lumped, flex_topo, sacsma_snow17]
+  # lag whose contents are the reach. Unlike the bucket, all three of them
+  # report `dis` — the probe requires it — so the rating is genuinely drawn
+  # against discharge rather than against the store. All four are the real
+  # test.
+  #
+  # `reference_rating` is the honest gauge: two reservoirs with separated
+  # time constants, which is the only shape that produces a correctly-signed
+  # loop. It is in `must_pass` because the loop criterion's "the loop runs
+  # the right way" branch is otherwise exercised by nothing, and a dead
+  # branch is how the inverted-loop escape went unnoticed.
+  must_pass: [reference_bucket, flex_lumped, flex_topo, sacsma_snow17, reference_rating]
   must_fail:
     # A stage computed from a running maximum of discharge rather than from
     # the flow at the step: it grows and never comes back down, so the

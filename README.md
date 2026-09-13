@@ -174,7 +174,7 @@ between models.
 | `reference_sublimating` | broken | loses 40% of every snowfall to an unreported sublimation | caught by `phase_invariance` |
 | `reference_thirsty` | broken | evaporates a fixed share of its soil store, never reading demand; conserves water exactly | caught by `demand_consistency` |
 | `reference_stuck_router` | broken | a routing kernel summing to 0.9, so a tenth of every day's runoff never leaves the channel | caught by `routing_conservation` |
-| `reference_rating` | exact | the bucket with a real rating curve: discharge through a triangular unit hydrograph and stage solved from it with Manning's equation in a rectangular reach, so the gauge rises with the flow and a falling recession sits above where it sat on the way up | must pass every criterion of `momentum/stage-discharge-monotonic` |
+| `reference_rating` | exact | the bucket with a real rating curve: yield enters a shallow floodplain and a deep channel reservoir with separated time constants, and the stage is the depth the channel's volume makes in a fixed bed, so the gauge rises with the flow and a falling recession sits above where it sat on the way up | must pass every criterion of `momentum/stage-discharge-monotonic` |
 | `reference_rating_drift` | broken | derives its stage from a running maximum of discharge, so the gauge ratchets up and never comes back down | caught by `rating_monotonic` |
 | `reference_rating_inverted` | broken | reads the loop backwards, high while the flood is arriving and low once it is leaving: monotone in discharge, so only the loop sees it | caught by `rating_loop` |
 | `reference_flat_stage` | broken | reports a constant stage, so there is no rating and no loop, only a number that does not vary | caught by `non_degenerate` |
