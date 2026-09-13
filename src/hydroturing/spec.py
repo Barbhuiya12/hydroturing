@@ -81,6 +81,14 @@ FULL_WINDOW = "full"
 # These repository-owned baselines are the only code allowed to bypass the
 # container boundary. A submitted manifest cannot opt itself into host access.
 TRUSTED_SUBPROCESS_MODELS = {
+    "reference_spatial_loss",
+    "reference_spatial_gain",
+    "reference_spatial_capacity",
+    "reference_spatial_forcing",
+    "reference_spatial_et",
+    "reference_spatial_negative",
+    "reference_spatial_frozen",
+
     "reference_bucket",
     "reference_coupled",
     "reference_diurnal_bias",

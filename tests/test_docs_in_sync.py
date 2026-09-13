@@ -10,6 +10,7 @@ checklist at the end of AGENTS.md into something the probe workflow enforces.
 from __future__ import annotations
 
 import csv
+import json
 import re
 
 import pytest
@@ -33,6 +34,24 @@ EVALUATED_MODELS = sorted(
 
 def read(name: str) -> str:
     return (REPO_ROOT / name).read_text(encoding="utf-8")
+
+
+def _pending_evaluations():
+    """Explicit unrun cases, never fabricated rows in the scored archive."""
+    path = REPO_ROOT / "models/pending-evaluations.json"
+    items = json.loads(path.read_text()) if path.exists() else []
+    pending = set()
+    archived = list(csv.DictReader((REPO_ROOT / "models/result.csv").open()))
+    for item in items:
+        pair = (item["model"], item["probe"])
+        assert pair not in pending, f"duplicate pending evaluation: {pair}"
+        model = load_model(REPO_ROOT / "models" / item["model"] / "model.yaml")
+        assert item["version"] == model.version and item["probe"] in PROBES
+        assert item["reason"].strip()
+        assert not any(r["model"] == item["model"] and r["version"] == item["version"]
+                       and r["probe"] == item["probe"] for r in archived), f"stale pending entry: {pair}"
+        pending.add(pair)
+    return pending
 
 
 @pytest.mark.parametrize("probe_id", PROBE_IDS)
@@ -144,7 +163,10 @@ def _assert_counts_match_archive(
     partial = [
         f"{model} {standings[model]['version']} ({len(standings[model]['probes'])} of {len(PROBE_IDS)})"
         for model in listed
-        if model in standings and len(standings[model]["probes"]) < len(PROBE_IDS)
+        if model in standings and any(
+            (model, probe) not in _pending_evaluations()
+            for probe in set(PROBE_IDS) - standings[model]["probes"]
+        )
     ]
     assert not partial, (
         f"{where} states a standing for {partial}, but the newest archived version was not run "
@@ -213,4 +235,14 @@ def test_archive_has_every_evaluated_model_on_every_probe():
         for probe in PROBE_IDS
         if (model, probe) not in archived
     ]
-    assert not missing, f"models/result.csv has no row for: {missing}"
+    assert set(missing) == _pending_evaluations(), (
+        f"archive gaps must exactly match explicit pending evaluations: {missing}"
+    )
+
+
+def test_pending_evaluations_are_visible_in_every_results_table():
+    for model, probe in _pending_evaluations():
+        row = re.search(rf"^\| \[`{model}`\]\(models/[^\n]+", read("README.md"), re.M).group()
+        assert f"Pending: `{probe}`" in row
+        rows = re.findall(rf'<tr><td class="mono">{model}</td>.*?</tr>', read("site/index.html"))
+        assert len(rows) == 3 and all(f"Pending: {probe}" in row for row in rows)

@@ -1,0 +1,32 @@
+[
+  {
+    "model": "dhbv2",
+    "version": "0.5.4-hbv2ep100.3",
+    "probe": "mass/ungauged-basin-closure",
+    "reason": "Evaluation deferred to the maintainer; no new run or verdict is claimed."
+  },
+  {
+    "model": "wflow_sbm",
+    "version": "1.0.4-ht.4",
+    "probe": "mass/ungauged-basin-closure",
+    "reason": "Evaluation deferred to the maintainer; no new run or verdict is claimed."
+  },
+  {
+    "model": "summa",
+    "version": "4.0.0-f787fa5.4",
+    "probe": "mass/ungauged-basin-closure",
+    "reason": "Evaluation deferred to the maintainer; no new run or verdict is claimed."
+  },
+  {
+    "model": "cwatm",
+    "version": "1.11-5baaadd.4",
+    "probe": "mass/ungauged-basin-closure",
+    "reason": "Evaluation deferred to the maintainer; no new run or verdict is claimed."
+  },
+  {
+    "model": "lisflood",
+    "version": "5.0.0-onecell.5",
+    "probe": "mass/ungauged-basin-closure",
+    "reason": "Evaluation deferred to the maintainer; no new run or verdict is claimed."
+  }
+]

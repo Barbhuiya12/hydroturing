@@ -142,17 +142,13 @@ whole-record closure. The fitted thresholds describe the synthetic climate,
 not the submitted model's unknown training range.
 Contributed by Taiqi Lian.
 
-### `mass/ungauged-basin-closure` &middot; standard &middot; **unclaimed**
-`ht init-probe --template extrapolation-space`
-
-Every seed draws a catchment, and some draws sit outside the range models are
-normally fitted over. Every seed must pass, so the verdict turns on the
-corners.
-
-*Discriminates:* models fitted to a gauged sample and deployed on an ungauged
-one, which is the deployment case the field actually cares about. The work is
-in defending where the hull boundary sits; push one attribute out at a time,
-or you generate catchments no real place resembles and fail honest models.
+### `mass/ungauged-basin-closure` &middot; **merged**
+Full-window water budgets on one independently generated catchment per seed,
+with soil/canopy capacities sampled across an experimental reference domain.
+Uses native catchment-closure criteria and four physical references; annual
+residuals are separate diagnostics. Catches attribute-dependent budget,
+capacity, forcing and partition errors.
+Contributed by Shunan Zhou (Dalian University of Technology, Dalian, China).
 
 ### `mass/precipitation-counterfactual` &middot; **merged**
 The same seed 20% wetter, 10% wetter and 20% drier: the water added or
