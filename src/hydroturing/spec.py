@@ -27,11 +27,11 @@ SCHEMA_DIR = REPO_ROOT / "schemas"
 # `sbl` is a component of `evspsbl`, never an addition to it. `rlus` is the
 # total upward longwave radiation, surface emission plus reflected downward
 # longwave, positive away from the surface.
-FLUX_VARS = ("pr", "evspsbl", "mrro", "dis", "gwex", "sbl", "hfls", "hfss", "hfg", "rlus")
+FLUX_VARS = ("pr", "evspsbl", "mrro", "dis", "gwex", "sbl", "hfls", "hfss", "hfg", "rlus", "hfg_bottom")
 STATE_VARS = ("mrso", "snw", "canopy", "gw", "channel")
 # Keep diagnostics out of STATE_VARS: closure sums every reported store,
 # and temperature must never be added to water storage.
-DIAG_VARS = ("ts",)
+DIAG_VARS = ("ts", "tsoil_layer")
 
 UNITS = {
     "pr": "mm day-1",
@@ -49,6 +49,8 @@ UNITS = {
     "rlus": "W m-2",
     # Instantaneous skin temperature; radiation uses kelvin, unlike forcing tas.
     "ts": "K",
+    "hfg_bottom": "W m-2",
+    "tsoil_layer": "K",
     "mrso": "mm",
     "snw": "mm",
     "canopy": "mm",
@@ -83,6 +85,9 @@ TRUSTED_SUBPROCESS_MODELS = {
     "reference_coupled",
     "reference_diurnal_bias",
     "reference_abstraction_blind",
+    "reference_soil_heat",
+    "reference_frozen_soil",
+    "reference_half_soil",
     "reference_two_head",
     "reference_constant_lambda",
     "reference_sublimation_blind",
