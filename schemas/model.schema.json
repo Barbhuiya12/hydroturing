@@ -42,7 +42,7 @@
         },
         "diagnostics": {
           "type": "array", "items": {"type": "string"}, "uniqueItems": true,
-          "description": "Diagnostic outputs that are neither fluxes nor stores, such as a surface temperature. Read by criteria, never integrated or differenced."
+          "description": "Non-water diagnostics such as surface or layer temperature. Excluded from water-storage sums; each criterion defines their time handling."
         }
       }
     },

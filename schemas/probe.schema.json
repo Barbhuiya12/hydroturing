@@ -101,7 +101,7 @@
             "type": "string"
           },
           "uniqueItems": true,
-          "description": "Diagnostic outputs a criterion reads but no budget integrates or differences, such as a surface temperature."
+          "description": "Non-water diagnostics read by criteria, such as surface or layer temperature. Excluded from water-storage sums; each criterion defines their time handling."
         },
         "forcing": {
           "type": "array",

@@ -138,6 +138,8 @@ numbers in both runs; keep it that way and do not reseed from the clock.
 | `hfss` | sensible heat flux, positive away from the surface | W/m2 |
 | `hfg` | ground heat flux at the actual soil surface, positive into the ground; a flux taken below the surface must be corrected for heat storage above that depth | W/m2 |
 | `rlus` | total upward longwave radiation at the surface: emission plus reflected downward longwave, positive away from the surface; row i's value is at row i's `time`, the same instant as row i's `rlds` | W/m2 |
+| `hfg_bottom` | downward heat flux through the bottom of the specified soil layer | W/m2 |
+| `tsoil_layer` | mean temperature of that soil layer at the end of the interval; a diagnostic, not a water store | K |
 | `mrso` | soil water storage | mm |
 | `snw` | snow water equivalent | mm |
 | `canopy` | canopy interception storage | mm |
@@ -153,6 +155,16 @@ other energy sources or sinks in that layer. Use the model's actual heat
 storage, not a value inferred from the surface-budget residual. Document the
 mapping and any unavailable terms. Once `hfg` is mapped to the surface, do
 not subtract subsurface heat storage again in the surface budget.
+
+Declare temperature under `emits.diagnostics: [tsoil_layer]`, never under
+`emits.states`. Probes request it through `requires.diagnostics`; it is
+excluded from water-storage sums. For soil heat storage, both boundary fluxes
+are interval means and the temperature is the mean over the same fixed layer
+at the interval end. The row's `time` still matches the forcing interval's
+start. Include spinup rows: the last spinup temperature is the first scored
+interval's initial temperature. Use native model outputs with matching layer
+boundaries and a declared heat capacity; do not reconstruct a boundary flux
+from the same temperature change the probe checks.
 
 A probe names the stores it requires. Report every store the model
 actually has, including ones the probe did not name: a groundwater zone
@@ -211,9 +223,18 @@ declaration. For example, `energy/radiation-consistency` requires consumption
 of `rlds` and `eps`; a model that does not declare it consumes both is
 `N/A (INCOMPATIBLE)` because it may be computing its own sky or emissivity.
 
-Declare diagnostic outputs under the optional key `diagnostics: [ts]`.
-Criteria read diagnostics, but budgets never integrate or difference them;
-a surface temperature must not be summed into water storage.
+Declare diagnostic outputs under the optional key `diagnostics`, such as
+`[ts]` or `[tsoil_layer]`. They are excluded from water-storage sums.
+Each criterion defines their time handling: radiation reads instantaneous
+`ts`, while soil heat storage differences interval-end `tsoil_layer`.
+
+For soil heat storage, declare consumption of the prescribed layer depth,
+areal heat capacity and initial temperature, as well as the incoming
+radiation and air temperature. A model that cannot configure that control
+volume is `N/A (INCOMPATIBLE)`, not a failed energy budget. The synthetic
+reference represents a lumped layer from zero to the prescribed depth;
+its areal capacity already includes depth. Document the actual parameter
+and boundary mapping in `run.json`; metadata alone does not prove compliance.
 
 ## Verify before you submit
 
