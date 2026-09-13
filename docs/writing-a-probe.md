@@ -116,6 +116,8 @@ Every one is binary.
 | `radiative_identity` | upward longwave equals what the reported surface temperature emits plus the reflected downward longwave, at every step, within the larger of a relative tolerance and an absolute floor; emissivity comes from `static.json` | one run, instantaneous values |
 | `soil_heat_storage` | interval boundary heat input agrees with fixed-layer temperature change and prescribed heat capacity | one run, separate heating/recovery phases |
 | `routing_conservation` | the channel store is non-negative and never exceeds `max_lag_days` of the largest recent runoff | one run |
+| `rating_monotonic` | stage is single-valued in discharge: within each discharge bin the reported stage spans no more than the tolerance, and the bin means rise with discharge | one run |
+| `rating_loop` | where the gauge loops against the reach's store, the loop must be small enough to be noise or run the right way: at the same storage the rising limb sits lower than the falling one | one run |
 
 Picking a denominator for `closure` and `regime_transfer`:
 
@@ -262,6 +264,10 @@ The reference models available today:
 | `reference_sublimating` | loses 40% of every snowfall unreported | `phase_invariance` |
 | `reference_thirsty` | evaporates a fixed share of its soil store whatever the demand | `demand_consistency` |
 | `reference_stuck_router` | a routing kernel summing to 0.9 | `routing_conservation` |
+| `reference_rating` | the bucket with a real rating curve: discharge through a triangular unit hydrograph, stage solved from it with Manning's equation in a rectangular reach | nothing, it must pass the stage-discharge probe |
+| `reference_rating_drift` | derives its stage from a running maximum of discharge, so the gauge ratchets up and never comes back down | `rating_monotonic` |
+| `reference_rating_inverted` | reads the loop backwards, high while the flood is arriving and low once it is leaving | `rating_loop` |
+| `reference_flat_stage` | reports a constant stage, so there is no rating and no loop | `non_degenerate` |
 | `reference_coupled` | the bucket with snow sublimation and a surface energy budget; every kilogram converted at the latent heat of the phase it actually underwent | nothing, it must pass the energy probes |
 | `reference_soil_heat` | a synthetic fixed-layer fixture with conductive boundary fluxes and temperature integrated consistently | nothing, it must pass `soil_heat_storage` |
 | `reference_frozen_soil` | keeps the conductive fluxes but reports a constant soil temperature | `soil_heat_storage` |

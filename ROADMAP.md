@@ -223,12 +223,13 @@ The channel store is never negative and never holds more than its hydrograph can
 ### `momentum/channel-routing-mass` &middot; starter &middot; **unclaimed**
 Inflow minus outflow minus the change in channel storage, per reach.
 
-### `momentum/stage-discharge-monotonic` &middot; standard &middot; **unclaimed**
+### `momentum/stage-discharge-monotonic` &middot; **merged**
 Steady-flow rating must be monotonic. Where a loop rating appears, it must be
 traversed in the physically correct direction, with the rising limb carrying
 more discharge at a given stage than the falling limb.
 *Discriminates:* models that fit a hydrograph while implying an impossible
 relationship between depth and flow.
+Contributed by Yuanhang Liu.
 
 ### `momentum/wave-celerity-bounds` &middot; hard &middot; **unclaimed**
 Kinematic wave celerity must be positive and near the Manning expectation for

@@ -31,7 +31,7 @@ FLUX_VARS = ("pr", "evspsbl", "mrro", "dis", "gwex", "sbl", "hfls", "hfss", "hfg
 STATE_VARS = ("mrso", "snw", "canopy", "gw", "channel")
 # Keep diagnostics out of STATE_VARS: closure sums every reported store,
 # and temperature must never be added to water storage.
-DIAG_VARS = ("ts", "tsoil_layer")
+DIAG_VARS = ("ts", "tsoil_layer", "stage")
 
 UNITS = {
     "pr": "mm day-1",
@@ -51,6 +51,7 @@ UNITS = {
     "ts": "K",
     "hfg_bottom": "W m-2",
     "tsoil_layer": "K",
+    "stage": "m",
     "mrso": "mm",
     "snw": "mm",
     "canopy": "mm",
@@ -117,6 +118,11 @@ TRUSTED_SUBPROCESS_MODELS = {
     "reference_radiative",
     "reference_air_emitter",
     "reference_no_reflection",
+    # Rating probes' own baselines: the momentum gauge suite runs in-process.
+    "reference_rating",
+    "reference_rating_drift",
+    "reference_rating_inverted",
+    "reference_flat_stage",
 }
 
 

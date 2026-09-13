@@ -19,6 +19,7 @@ timestep: [PT1D, PT1H, PT15M, PT5M, PT1M]
 emits:
   fluxes: [pr, evspsbl, mrro, gwex]
   states: [mrso, snw, canopy, gw, channel]
+  diagnostics: [stage]
 needs_forcing: [pr, tas, pet]
 supports:
   perturbation: true

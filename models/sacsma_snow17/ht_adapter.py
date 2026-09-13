@@ -44,9 +44,16 @@ from pathlib import Path
 
 from sacsma_snow17 import SacState, SnowState, gamma_uh, sac1, sac_storage, snow17
 
-COLUMNS = ["time", "pr", "evspsbl", "mrro", "gwex", "mrso", "snw", "canopy", "gw", "channel"]
+COLUMNS = ["time", "pr", "evspsbl", "mrro", "gwex", "mrso", "snw", "canopy", "gw", "channel", "stage"]
 MODEL = {"name": "sacsma_snow17", "version": "1.0.0"}
 STEP_HOURS = {"PT1D": 24, "PT1H": 1}
+
+# Default reach geometry, used when the catchment does not hand one over.
+DEFAULT_WIDTH_M = 18.0
+DEFAULT_SLOPE = 0.0015
+DEFAULT_MANNING_N = 0.035
+DEFAULT_REACH_LENGTH_M = 4500.0
+SECONDS_PER_DAY = 86400.0
 
 # A mid-range parameter set from the NWS calibration guidance (Anderson
 # 2002) and CAMELS-scale calibrations; the catchment's capacity rescales the
@@ -68,6 +75,38 @@ def surface_pressure_hpa(elev_m: float) -> float:
     """The NCAR driver's fit of surface pressure to elevation."""
     e = elev_m / 100.0
     return 33.86 * (29.9 - 0.335 * e + 0.00022 * e ** 2.4)
+
+
+def stage_of(channel_mm: float, lower_mm: float, static: dict, dt_days: float) -> float:
+    """The level a gauge in the reach would read, in metres.
+
+    A diagnostic rather than a store, reported so that
+    `momentum/stage-discharge-monotonic` has a gauge to read, and never
+    differenced into any budget. A stage is a length read off a staff gauge
+    in a cross-section, so it is built from the flow the reach is carrying
+    rather than from a catchment depth, and Manning's normal depth is the
+    bridge between the two:
+
+        h = ( Q * n / (w * sqrt(S)) )^(3/5)
+
+    The flow is what both of the model's lower reservoirs are draining:
+    `channel` is the water the unit hydrograph has not yet released, and
+    `gw` is the lower zone, draining over months. They have different time
+    constants and the gauge sees both, which is what lets the level on the
+    rising limb sit below the level the same flow makes once the lower zone
+    has drained.
+    """
+    area_km2 = float(static.get("area_km2", 0.0))
+    width_m = float(static.get("width_m", DEFAULT_WIDTH_M))
+    slope = float(static.get("slope", DEFAULT_SLOPE))
+    manning_n = float(static.get("manning_n", DEFAULT_MANNING_N))
+    if area_km2 <= 0.0 or width_m <= 0.0 or slope <= 0.0 or dt_days <= 0.0:
+        return 0.0
+    drain_mm_per_step = max(channel_mm, 0.0) / dt_days + max(lower_mm, 0.0) / dt_days
+    q_m3s = drain_mm_per_step * 1e-3 * area_km2 * 1e6 / SECONDS_PER_DAY
+    if q_m3s <= 0.0:
+        return 0.0
+    return (q_m3s * manning_n / (width_m * slope ** 0.5)) ** 0.6
 
 
 def parameters(static: dict) -> tuple[dict, dict]:
@@ -154,6 +193,7 @@ def simulate(forcing: list[dict], static: dict, timestep: str) -> tuple[list[dic
         cum_in += g
         cum_out += row["mrro"] * dt_days
         row["channel"] = cum_in - cum_out
+        row["stage"] = stage_of(row["channel"], row["gw"], static, dt_days)
     notes = {
         "port": "sacsma_snow17.py, checked against the f2py build of the Fortran",
         "parameters": {"sac": sac, "snow17": snow, "unit_hydrograph": UH},
