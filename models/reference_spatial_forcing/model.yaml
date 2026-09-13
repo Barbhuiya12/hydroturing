@@ -17,6 +17,7 @@ emits:
   - pr
   - evspsbl
   - mrro
+  - gwex
   states:
   - mrso
   - snw
@@ -32,3 +33,6 @@ resources:
   cpu: 1
   memory_gb: 1
   gpu: false
+
+# Existing adapter mappings; no change to model equations.
+needs_static: [soil_capacity_mm, canopy_capacity_mm]

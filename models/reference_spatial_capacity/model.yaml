@@ -1,6 +1,6 @@
 name: reference_spatial_capacity
 version: 1.0.0
-description: Causal attribute-dependent capacity fault. Diagnostic fixture for ungauged-basin-closure;
+description: Attribute-dependent fixed storage-output offset fault. Diagnostic fixture for ungauged-basin-closure;
   not a scientific model.
 authors:
 - Shunan Zhou
@@ -17,6 +17,7 @@ emits:
   - pr
   - evspsbl
   - mrro
+  - gwex
   states:
   - mrso
   - snw
@@ -32,3 +33,6 @@ resources:
   cpu: 1
   memory_gb: 1
   gpu: false
+
+# Existing adapter mappings; no change to model equations.
+needs_static: [soil_capacity_mm, canopy_capacity_mm]

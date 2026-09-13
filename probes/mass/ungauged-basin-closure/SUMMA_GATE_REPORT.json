@@ -1,0 +1,417 @@
+{
+  "model": {
+    "name": "summa",
+    "version": "4.0.0-f787fa5.4"
+  },
+  "suite_version": "0.1.0",
+  "runner": "docker",
+  "verdict": "FAIL",
+  "reason": "VIOLATION",
+  "summary": "0/1 probes passed",
+  "flags": [],
+  "probes": [
+    {
+      "id": "mass/ungauged-basin-closure",
+      "law": "mass",
+      "authors": [
+        {
+          "name": "Shunan Zhou",
+          "affiliation": "Dalian University of Technology, Dalian, China",
+          "orcid": "0009-0006-4072-6799",
+          "github": "Davidanan"
+        }
+      ],
+      "verdict": "FAIL",
+      "reason": "VIOLATION",
+      "seeds": [
+        1679270760,
+        38739227,
+        545691341,
+        1052643455,
+        1559595569,
+        2066547683,
+        426016150,
+        932968264,
+        1439920378,
+        1946872492,
+        306340959,
+        813293073
+      ],
+      "window": null,
+      "criteria": {
+        "closure": {
+          "status": "pass",
+          "message": "cumulative residual 0.0000% of sum_pr (limit 5.0%)",
+          "value": 3.9007815672186347e-10,
+          "threshold": 0.05,
+          "worst_seed": 306340959,
+          "per_seed": [
+            {
+              "seed": 1679270760,
+              "status": "pass",
+              "value": 2.2530876499281632e-10
+            },
+            {
+              "seed": 38739227,
+              "status": "pass",
+              "value": 1.719025142699038e-10
+            },
+            {
+              "seed": 545691341,
+              "status": "pass",
+              "value": 1.731769937356662e-10
+            },
+            {
+              "seed": 1052643455,
+              "status": "pass",
+              "value": 3.209551803913544e-10
+            },
+            {
+              "seed": 1559595569,
+              "status": "pass",
+              "value": 2.7680991701059186e-10
+            },
+            {
+              "seed": 2066547683,
+              "status": "pass",
+              "value": 3.566694596604257e-10
+            },
+            {
+              "seed": 426016150,
+              "status": "pass",
+              "value": 1.1297915949013418e-10
+            },
+            {
+              "seed": 932968264,
+              "status": "pass",
+              "value": 3.2674056205136285e-10
+            },
+            {
+              "seed": 1439920378,
+              "status": "pass",
+              "value": 2.2544087089492962e-10
+            },
+            {
+              "seed": 1946872492,
+              "status": "pass",
+              "value": 2.305313202042936e-10
+            },
+            {
+              "seed": 306340959,
+              "status": "pass",
+              "value": 3.9007815672186347e-10
+            },
+            {
+              "seed": 813293073,
+              "status": "pass",
+              "value": 2.4173778335150694e-10
+            }
+          ],
+          "diagnostics": {
+            "cumulative_residual": -4.203604760277813e-06,
+            "denominator_total": 10776.314150999999,
+            "declared_sources_total": 0.0,
+            "storage_change": 67.97466152954104,
+            "max_step_residual": 2.6478643277982883e-08,
+            "mean_step_residual": 1.5034077310773226e-09,
+            "suspicious_exact": false
+          }
+        },
+        "state_bounds": {
+          "status": "fail",
+          "message": "canopy leaves [0, 0.704674] on 17 steps (range 0.00919 to 0.737)",
+          "value": 0.03222855269177127,
+          "threshold": 1e-06,
+          "worst_seed": 1946872492,
+          "per_seed": [
+            {
+              "seed": 1679270760,
+              "status": "fail",
+              "value": 0.01276319359000011
+            },
+            {
+              "seed": 38739227,
+              "status": "fail",
+              "value": 0.010703569539999958
+            },
+            {
+              "seed": 545691341,
+              "status": "fail",
+              "value": 0.006875541318591694
+            },
+            {
+              "seed": 1052643455,
+              "status": "fail",
+              "value": 0.012219338790937506
+            },
+            {
+              "seed": 1559595569,
+              "status": "fail",
+              "value": 0.013162340400000083
+            },
+            {
+              "seed": 2066547683,
+              "status": "fail",
+              "value": 0.013773494980000134
+            },
+            {
+              "seed": 426016150,
+              "status": "fail",
+              "value": 0.024811740442618024
+            },
+            {
+              "seed": 932968264,
+              "status": "fail",
+              "value": 0.02616376914000007
+            },
+            {
+              "seed": 1439920378,
+              "status": "pass",
+              "value": 0.0
+            },
+            {
+              "seed": 1946872492,
+              "status": "fail",
+              "value": 0.03222855269177127
+            },
+            {
+              "seed": 306340959,
+              "status": "fail",
+              "value": 0.01748504660401151
+            },
+            {
+              "seed": 813293073,
+              "status": "fail",
+              "value": 0.0006085548199998847
+            }
+          ],
+          "diagnostics": {
+            "worst_variable": "canopy",
+            "n_violations": 1
+          }
+        },
+        "et_plausible": {
+          "status": "fail",
+          "message": "cumulative ET is 1.506 of potential ET (limit 1)",
+          "value": 1.50550127922314,
+          "threshold": 1.0,
+          "worst_seed": 1559595569,
+          "per_seed": [
+            {
+              "seed": 1679270760,
+              "status": "fail",
+              "value": 1.0722878918771488
+            },
+            {
+              "seed": 38739227,
+              "status": "pass",
+              "value": 0.996476194618715
+            },
+            {
+              "seed": 545691341,
+              "status": "fail",
+              "value": 1.31847093282795
+            },
+            {
+              "seed": 1052643455,
+              "status": "fail",
+              "value": 1.1751365734014212
+            },
+            {
+              "seed": 1559595569,
+              "status": "fail",
+              "value": 1.50550127922314
+            },
+            {
+              "seed": 2066547683,
+              "status": "pass",
+              "value": 0.7202783090413587
+            },
+            {
+              "seed": 426016150,
+              "status": "fail",
+              "value": 1.0061342575776344
+            },
+            {
+              "seed": 932968264,
+              "status": "fail",
+              "value": 1.4454176353019101
+            },
+            {
+              "seed": 1439920378,
+              "status": "pass",
+              "value": 0.5858128260621792
+            },
+            {
+              "seed": 1946872492,
+              "status": "pass",
+              "value": 0.9840394333726151
+            },
+            {
+              "seed": 306340959,
+              "status": "fail",
+              "value": 1.4446007934975862
+            },
+            {
+              "seed": 813293073,
+              "status": "pass",
+              "value": 0.6393261772211333
+            }
+          ],
+          "diagnostics": {
+            "n_steps_over_pet": 1705,
+            "cumulative_et_mm": 8789.567856531236,
+            "cumulative_pet_mm": 5838.299826
+          }
+        },
+        "non_degenerate": {
+          "status": "fail",
+          "message": "runoff ratio 0.0044 outside [0.02, 0.98]",
+          "value": 0.004411365210762805,
+          "threshold": null,
+          "worst_seed": 545691341,
+          "per_seed": [
+            {
+              "seed": 1679270760,
+              "status": "pass",
+              "value": 0.15376537818508132
+            },
+            {
+              "seed": 38739227,
+              "status": "fail",
+              "value": 0.0007850258268325336
+            },
+            {
+              "seed": 545691341,
+              "status": "fail",
+              "value": 0.004411365210762805
+            },
+            {
+              "seed": 1052643455,
+              "status": "pass",
+              "value": 0.06458123567498303
+            },
+            {
+              "seed": 1559595569,
+              "status": "pass",
+              "value": 0.24807345861445285
+            },
+            {
+              "seed": 2066547683,
+              "status": "fail",
+              "value": 0.004403946790744164
+            },
+            {
+              "seed": 426016150,
+              "status": "pass",
+              "value": 0.19090866755722916
+            },
+            {
+              "seed": 932968264,
+              "status": "pass",
+              "value": 0.23454850822915627
+            },
+            {
+              "seed": 1439920378,
+              "status": "pass",
+              "value": 0.07910823495350199
+            },
+            {
+              "seed": 1946872492,
+              "status": "fail",
+              "value": 0.0009907452892832756
+            },
+            {
+              "seed": 306340959,
+              "status": "pass",
+              "value": 0.21261855447251427
+            },
+            {
+              "seed": 813293073,
+              "status": "pass",
+              "value": 0.03430161677937103
+            }
+          ],
+          "diagnostics": {
+            "runoff_ratio": 0.004411365210762805,
+            "cv_mrro": 2.077779353916582,
+            "cv_evspsbl": 0.9483194905999898,
+            "runoff_precip_correlation": 0.0886513383985449
+          }
+        },
+        "forcing_fidelity": {
+          "status": "pass",
+          "message": "reported forcing matches the input",
+          "value": 0.0,
+          "threshold": 1e-06,
+          "worst_seed": 1679270760,
+          "per_seed": [
+            {
+              "seed": 1679270760,
+              "status": "pass",
+              "value": 0.0
+            },
+            {
+              "seed": 38739227,
+              "status": "pass",
+              "value": 0.0
+            },
+            {
+              "seed": 545691341,
+              "status": "pass",
+              "value": 0.0
+            },
+            {
+              "seed": 1052643455,
+              "status": "pass",
+              "value": 0.0
+            },
+            {
+              "seed": 1559595569,
+              "status": "pass",
+              "value": 0.0
+            },
+            {
+              "seed": 2066547683,
+              "status": "pass",
+              "value": 0.0
+            },
+            {
+              "seed": 426016150,
+              "status": "pass",
+              "value": 0.0
+            },
+            {
+              "seed": 932968264,
+              "status": "pass",
+              "value": 0.0
+            },
+            {
+              "seed": 1439920378,
+              "status": "pass",
+              "value": 0.0
+            },
+            {
+              "seed": 1946872492,
+              "status": "pass",
+              "value": 0.0
+            },
+            {
+              "seed": 306340959,
+              "status": "pass",
+              "value": 0.0
+            },
+            {
+              "seed": 813293073,
+              "status": "pass",
+              "value": 0.0
+            }
+          ],
+          "diagnostics": {
+            "worst_variable": null
+          }
+        }
+      }
+    }
+  ]
+}

@@ -60,7 +60,7 @@ def generate(seed: int) -> tuple[pd.DataFrame, dict]:
         wet[i] = uniforms[i] < probability
     pr = np.where(wet, MAX_DAILY_RAIN_MM * rng.beta(0.9, 3.2, N_STEPS), 0.0)
     # Positive temperatures deliberately isolate soil/canopy attributes from
-    # differences in snow-process support between the four physical references.
+    # differences in snow-process support between physical models.
     tas = mean_t - amplitude_t * seasonal + rng.uniform(-3.0, 3.0, N_STEPS)
     pet = (mean_pet - amplitude_pet * seasonal) * rng.uniform(0.85, 1.15, N_STEPS)
     forcing = pd.DataFrame({

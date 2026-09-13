@@ -34,10 +34,6 @@ def simulate(forcing, static, dt_days=1.0, fault="loss", severity=1.0):
     active = outside(static) and severity > 0.0
     used_static = dict(static)
     used_forcing = [dict(r) for r in forcing]
-    if active and fault == "capacity":
-        # A hard-coded reference-domain capacity, not a change in the real basin.
-        used_static["soil_capacity_mm"] = max(320.0, static["soil_capacity_mm"])
-        used_static["canopy_capacity_mm"] = max(2.0, static["canopy_capacity_mm"])
     if active and fault == "forcing":
         for r in used_forcing:
             r["pr"] *= 1.0 - 0.2 * severity
@@ -45,7 +41,13 @@ def simulate(forcing, static, dt_days=1.0, fault="loss", severity=1.0):
     if not active:
         return rows
     for row, forcing_row in zip(rows, forcing):
-        if fault == "loss":
+        if fault == "capacity":
+            # A fixed export offset, including spinup: differences cancel in
+            # the budget, but absolute storage exceeds the supplied capacity.
+            # Only a diagnostic fixture; never applied to submitted outputs.
+            row["mrso"] += severity * (static["soil_capacity_mm"] + 1.0)
+            row["canopy"] += severity * (static["canopy_capacity_mm"] + 1.0)
+        elif fault == "loss":
             # Wrong inverse scaling of two exported output heads; stores are
             # unchanged. Exports disappear from the report, creating water.
             row["mrro"] *= 1.0 - 0.2 * severity
