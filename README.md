@@ -99,14 +99,7 @@ unclaimed.
 | [`mass/phase-counterfactual`](probes/mass/phase-counterfactual) | mass | The same water falling as rain instead of snow: timing moves, the integrated volumes may not. | `reference_sublimating` |
 | [`mass/time-origin-invariance`](probes/mass/time-origin-invariance) | mass | The same weather under a 28-year calendar shift that preserves seasons and leap days: evaporation, runoff and water stores must agree. | `reference_calendar`, `reference_degenerate`, `reference_leaky` |
 | [`mass/precipitation-counterfactual`](probes/mass/precipitation-counterfactual) | mass | The same seed 20% wetter, 10% wetter and 20% drier: the water added or removed must be partitioned among evaporation, runoff and storage, and runoff must rise from drier to wetter. | `reference_cheater`, `reference_leaky`, `reference_degenerate` |
-| [`mass/human-abstraction`](probes/mass/human-abstraction) | mass | A prescribed net irrigation withdrawal must leave the budget: the same weather run with and without it, and the difference must account for exactly the abstracted volume. | `reference_spatial_loss` | broken | Attribute-dependent loss fault; exact bucket in the declared reference domain | caught by `spatial_closure` |
-| `reference_spatial_gain` | broken | Attribute-dependent gain fault; exact bucket in the declared reference domain | caught by `spatial_closure` |
-| `reference_spatial_capacity` | broken | Attribute-dependent capacity fault; exact bucket in the declared reference domain | caught by `spatial_state_bounds` |
-| `reference_spatial_forcing` | broken | Attribute-dependent forcing fault; exact bucket in the declared reference domain | caught by `spatial_forcing_fidelity` |
-| `reference_spatial_et` | broken | Attribute-dependent et fault; exact bucket in the declared reference domain | caught by `spatial_et_plausible` |
-| `reference_spatial_negative` | broken | Attribute-dependent negative fault; exact bucket in the declared reference domain | caught by `spatial_flux_bounds` |
-| `reference_spatial_frozen` | broken | Attribute-dependent frozen fault; exact bucket in the declared reference domain | caught by `spatial_non_degenerate` |
-| `reference_abstraction_blind`, `reference_leaky` |
+| [`mass/human-abstraction`](probes/mass/human-abstraction) | mass | A prescribed net irrigation withdrawal must leave the budget: the same weather run with and without it, and the difference must account for exactly the abstracted volume. | `reference_abstraction_blind`, `reference_leaky` |
 | [`energy/pet-consistency`](probes/energy/pet-consistency) | energy | Evaporation reaches demand when the model's own soil is wettest, stays below it, and falls when the soil is driest. | `reference_thirsty` |
 | [`energy/latent-heat-et-consistency`](probes/energy/latent-heat-et-consistency) | energy | The evaporation a model reports as water and the evaporation implied by the latent heat it reports: are they the same evaporation? | `reference_two_head`, `reference_constant_lambda`, `reference_sublimation_blind`, `reference_energy_leak` |
 | [`energy/evaporative-partition`](probes/energy/evaporative-partition) | energy | One summer without rain under net radiation that did not change: the latent heat a drying surface gives up has to warm the air. | `reference_two_head`, `reference_ground_dodge` |
@@ -157,6 +150,13 @@ between models.
 | `reference_soil_heat` | exact | a synthetic fixed-layer fixture driven by incoming radiation, with prescribed depth, heat capacity and initial temperature | must pass `soil_heat_storage`; checks budget consistency, not temperature accuracy |
 | `reference_frozen_soil` | broken | retains the conductive fluxes but reports a frozen soil temperature | caught by `soil_heat_storage` |
 | `reference_half_soil` | broken | retains the conductive fluxes but halves the reported soil-temperature change | caught by `soil_heat_storage` |
+| `reference_spatial_loss` | broken | Attribute-dependent loss fault; exact bucket in the declared reference domain | caught by `closure` |
+| `reference_spatial_gain` | broken | Attribute-dependent gain fault; exact bucket in the declared reference domain | caught by `closure` |
+| `reference_spatial_capacity` | broken | Attribute-dependent capacity fault; exact bucket in the declared reference domain | caught by `state_bounds` |
+| `reference_spatial_forcing` | broken | Attribute-dependent forcing fault; exact bucket in the declared reference domain | caught by `forcing_fidelity` |
+| `reference_spatial_et` | broken | Attribute-dependent et fault; exact bucket in the declared reference domain | caught by `et_plausible` |
+| `reference_spatial_negative` | broken | Attribute-dependent negative fault; exact bucket in the declared reference domain | caught by `non_degenerate` |
+| `reference_spatial_frozen` | broken | Attribute-dependent frozen fault; exact bucket in the declared reference domain | caught by `non_degenerate` |
 | `reference_abstraction_blind` | broken | the same bucket, blind to the prescribed withdrawal, so the two variants come out identical | caught by `human_abstraction` |
 | `reference_two_head` | broken | a water head and an energy head that never meet: both budgets close to 1e-15 and the latent heat implies an evaporation it never reported | caught by `flux_identity` |
 | `reference_constant_lambda` | broken | coherent, but converts every kilogram at the same latent heat of vaporisation | caught by `flux_identity` |
