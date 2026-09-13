@@ -23,6 +23,8 @@ requires:
   fluxes: [hfg, hfg_bottom]
   states: []
   diagnostics: [tsoil_layer]
+  forcing: [pr, tas, rsds, rlds]
+  static: [soil_heat_capacity_areal, soil_layer_depth_m, soil_temperature_initial]
 
 case:
   generator: generate.py

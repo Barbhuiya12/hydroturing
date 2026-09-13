@@ -2,7 +2,7 @@
 
 The complete HRLDAS/Noah-MP model was run on all five cases exported from the
 current `energy/soil-heat-storage-consistency` generator. Its normal output
-passed the unchanged `soil_heat_storage` criterion on every seed. Freezing
+passed the `soil_heat_storage` criterion on every seed. Freezing
 the reported temperature or halving its changes caused every seed to fail.
 
 These optional runs validate the proposed probe with native model output.
@@ -55,6 +55,13 @@ The native column has four layers. The first layer uses the case's sampled
 thickness; deeper layer thicknesses are 0.3, 0.6 and 1.0 m. Every layer starts
 at the case temperature and water content. Deeper soil follows the native
 model, rather than the synthetic reference's prescribed reservoir.
+
+The scored control volume is the first layer, from the surface to the
+specified depth. Its effective areal capacity includes that thickness. The
+mapping above and the native capacity checks below document how these runs
+represent the case; merely listing the inputs in a manifest would not prove
+that. An eventual Noah-MP adapter must also declare and honor the probe's
+forcing and static requirements before it can be scored as a registered model.
 
 Case timestamps label interval starts. The converter writes an initial forcing
 record and one record at each interval end, carrying that interval's forcing.
@@ -121,6 +128,10 @@ force every control phase to fail.
 These results establish consistency between native fluxes and layer storage
 under the specified test conditions. They do not establish temperature
 accuracy or guarantee detection of every possible reporting error.
+The synthetic reference's by-construction closure and these native-model
+measurements are separate evidence. Saved native outputs support replay of
+the criterion without rerunning the physical model when its inputs and
+equation are unchanged.
 
 ## Reproduce the generated-case runs
 

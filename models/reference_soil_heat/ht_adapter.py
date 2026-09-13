@@ -21,6 +21,24 @@ TOP_CONDUCTANCE = 6.0
 BOTTOM_CONDUCTANCE = 1.0
 
 
+def _thermal_layer(static):
+    """Configure the lumped control volume and its fixed material properties."""
+    depth = float(static["soil_layer_depth_m"])
+    capacity = float(static["soil_heat_capacity_areal"])
+    initial = float(static["soil_temperature_initial"])
+    if not all(math.isfinite(value) and value > 0 for value in (depth, capacity, initial)):
+        raise ValueError("soil layer depth, areal heat capacity and initial temperature must be finite and positive")
+    # The modeled layer extends from the surface to this supplied bottom.
+    # C_A already integrates Cv over that depth; do not multiply it again.
+    return {
+        "top_depth_m": 0.0,
+        "bottom_depth_m": depth,
+        "heat_capacity_areal_j_m2_k": capacity,
+        "heat_capacity_volumetric_j_m3_k": capacity / depth,
+        "initial_temperature_k": initial,
+    }
+
+
 def _radiative_fluxes(layer, air, shortwave, longwave, deep):
     """Solve the massless skin and return its native flux equations."""
     absorbed = (1.0 - ALBEDO) * shortwave + EMISSIVITY * longwave
@@ -52,9 +70,9 @@ def _simulate_radiation(forcing, static, seconds, temperature_scale, substep_sec
     Wind and humidity are available forcing; this dry reference represents
     exchange with a fixed coefficient and has no evaporation.
     """
-    first_air = float(forcing[0]["tas"]) + 273.15
-    capacity = float(static.get("soil_heat_capacity_areal", 400000.0))
-    initial = float(static.get("soil_temperature_initial", first_air))
+    material = _thermal_layer(static)
+    capacity = material["heat_capacity_areal_j_m2_k"]
+    initial = material["initial_temperature_k"]
     deep = initial
     count = max(1, math.ceil(seconds / substep_seconds))
     step_seconds = seconds / count
@@ -91,64 +109,9 @@ def _simulate_radiation(forcing, static, seconds, temperature_scale, substep_sec
 
 def simulate(forcing, static, dt_days=1.0 / 24.0, temperature_scale=1.0,
              *, substep_seconds=60.0):
-    """Use incoming radiation, or the existing prescribed-Rn case format."""
-    if "rn" in forcing[0]:
-        return _simulate_net_radiation(forcing, static, dt_days, temperature_scale)
-    if "rsds" not in forcing[0] or "rlds" not in forcing[0]:
-        raise ValueError("soil heat reference requires rn, or both rsds and rlds")
+    """Use incoming shortwave/longwave and the explicitly configured layer."""
     return _simulate_radiation(forcing, static, dt_days * 86400.0,
                                temperature_scale, substep_seconds)
-
-
-def _simulate_net_radiation(forcing, static, dt_days, temperature_scale):
-    """Integrate native flux laws and the layer temperature analytically.
-
-    With u=T_layer-T_deep, a the sensible exchange coefficient, Ks the top
-    conductance and Kb the bottom conductance, the massless skin obeys
-    Rn=a*(Ts-Ta)+Ks*(Ts-T_layer). Substitution gives
-    C_A*du/dt=eta*(Rn+a*(Ta-T_deep))-(a*eta+Kb)*u, eta=Ks/(a+Ks).
-
-    Rn and air temperature are constant in each supplied interval. The exact
-    mean u determines the mean native fluxes; no flux uses a storage residual.
-    temperature_scale changes only reported temperature for the two controls.
-    """
-    # Other surface-energy probes do not prescribe a thermal layer. Use the
-    # reference's fixed 0.2 m layer (Cv=2 MJ m-3 K-1), initialized using only
-    # the first forcing row. Explicit case settings always take precedence.
-    first_air = float(forcing[0]["tas"]) + 273.15
-    capacity = float(static.get("soil_heat_capacity_areal", 400000.0))
-    initial = float(static.get("soil_temperature_initial", first_air))
-    deep = float(static.get("soil_deep_temperature", first_air))
-    a = float(static.get("soil_sensible_exchange", 12.0))
-    ks = float(static.get("soil_top_conductance", 6.0))
-    kb = float(static.get("soil_bottom_conductance", 1.0))
-    seconds = dt_days * 86400.0
-    eta = ks / (a + ks)
-    loss = a * eta + kb
-    tau = capacity / loss
-    fraction = -math.expm1(-seconds / tau)
-    mean_fraction = tau * fraction / seconds
-    u = initial - deep
-    rows = []
-    for step in forcing:
-        rn = float(step["rn"])
-        air = float(step["tas"]) + 273.15 - deep
-        equilibrium = eta * (rn + a * air) / loss
-        end = u + (equilibrium - u) * fraction
-        mean = equilibrium + (u - equilibrium) * mean_fraction
-        skin_mean = (rn + a * air + ks * mean) / (a + ks)
-        rows.append({
-            "time": step["time"],
-            "pr": step["pr"],
-            "hfls": 0.0,
-            "hfss": a * (skin_mean - air),
-            "hfg": ks * (skin_mean - mean),
-            "hfg_bottom": kb * mean,
-            "tsoil_layer": initial + temperature_scale * (deep + end - initial),
-            "rn": rn,
-        })
-        u = end
-    return rows
 
 
 def main(model=MODEL, simulate_model=simulate) -> int:
@@ -161,7 +124,7 @@ def main(model=MODEL, simulate_model=simulate) -> int:
     with (io_dir / request["input"]["forcing"]).open(newline="") as fh:
         forcing = list(csv.DictReader(fh))
     for step in forcing:
-        for key in ("pr", "tas", "rn", "rsds", "rlds"):
+        for key in ("pr", "tas", "rsds", "rlds"):
             if key in step:
                 step[key] = float(step[key])
     static = json.loads((io_dir / request["input"]["static"]).read_text())
@@ -179,7 +142,14 @@ def main(model=MODEL, simulate_model=simulate) -> int:
     (io_dir / request["output"]["run"]).write_text(json.dumps({
         "status": "ok", "model": model, "n_steps": len(rows),
         "thermal_scope": "fixed homogeneous layer; no water transport or phase change",
-        "radiation_input": "prescribed rn" if "rn" in forcing[0] else "incoming rsds and rlds",
+        "radiation_input": "incoming rsds and rlds",
+        "thermal_layer": _thermal_layer(static),
+        "time_convention": {
+            "time": "interval start",
+            "hfg": "interval-mean downward flux at the soil surface",
+            "hfg_bottom": "interval-mean downward flux at thermal_layer.bottom_depth_m",
+            "tsoil_layer": "interval-end mean temperature over the configured layer",
+        },
     }, indent=2))
     return 0
 

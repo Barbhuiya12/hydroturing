@@ -276,6 +276,14 @@ The reference models available today:
 | `reference_air_emitter` | reports the skin's temperature but emits at the air's, reflected sky unchanged | `radiative_identity` |
 | `reference_no_reflection` | reports emission alone as the total upward longwave, the reflected sky left out | `radiative_identity` |
 
+The three soil-heat references require incoming `rsds` and `rlds`, `tas`,
+`pr`, and explicit layer depth, areal heat capacity and initial temperature.
+They have no prescribed-`rn` input path or default thermal layer. Their
+manifests therefore mark cases without these inputs `N/A (INCOMPATIBLE)`.
+`reference_soil_heat` is a synthetic fixture; the optional
+[native Noah-MP validation](noahmp-soil-heat-validation.md) supplies separate
+physical-model evidence.
+
 If your probe needs a broken model that does not exist yet, add it under
 `models/` alongside the probe. A criterion with nothing that trips it is
 untested.

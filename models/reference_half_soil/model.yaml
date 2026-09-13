@@ -13,8 +13,8 @@ emits:
   fluxes: [pr, hfls, hfss, hfg, hfg_bottom]
   states: []
   diagnostics: [tsoil_layer]
-# Also requires either rn or both rsds and rlds, as checked by the adapter.
-needs_forcing: [pr, tas]
+needs_forcing: [pr, tas, rsds, rlds]
+needs_static: [soil_heat_capacity_areal, soil_layer_depth_m, soil_temperature_initial]
 supports:
   perturbation: true
 resources: {cpu: 1, memory_gb: 1, gpu: false}

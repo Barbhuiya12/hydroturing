@@ -10,18 +10,20 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from hydroturing import registry
+from hydroturing import harness, registry
 from hydroturing.criteria import get
 from hydroturing.criteria.base import FAIL, PASS
 from hydroturing.harness import (
     build_case,
     load_generator,
     resolve_window_days,
+    run_probe,
     select_window,
     window_case,
 )
 from hydroturing.protocol import FORCING_FILE, RunResult, stage
 from hydroturing.runner import get_runner
+from hydroturing.scoring import INCOMPATIBLE, NOT_SCORED
 
 
 @pytest.fixture(scope="module")
@@ -104,31 +106,6 @@ def test_reference_equilibrium_heating_recovery_and_both_budgets(probe, simulate
     assert get("soil_heat_storage")(run, probe, {}).status == PASS
 
 
-def test_existing_net_radiation_fluxes_match_integrated_native_conduction(probe, simulate):
-    case = build_case(probe, 11)
-    # This is the older prescribed-net-radiation input format, still used by
-    # the existing surface probes. These coefficients belong to the model.
-    static = dict(case.static, soil_sensible_exchange=12.0,
-                  soil_top_conductance=6.0, soil_bottom_conductance=1.0)
-    forcing = case.forcing.assign(rn=case.forcing.rsds).drop(columns=["rsds", "rlds"])
-    output = simulate(forcing.to_dict("records"), static)[24]
-    a, ks, kb = 12.0, 6.0, 1.0
-    # Resolve the transient at 1-second intervals and integrate the physical
-    # flux laws numerically, rather than use the adapter's analytic mean.
-    rn = forcing.rn.iloc[24]
-    exchange = a * ks / (a + ks)
-    equilibrium = ks * rn / ((a + ks) * (exchange + kb))
-    seconds = np.arange(3601)
-    layer = equilibrium * (1 - np.exp(-(exchange + kb) * seconds / static["soil_heat_capacity_areal"]))
-    skin = (rn + ks * layer) / (a + ks)
-    for column, values in (("hfg", ks * (skin - layer)), ("hfg_bottom", kb * layer),
-                           ("hfss", a * skin)):
-        mean = (0.5 * (values[:-1] + values[1:]) * np.diff(seconds)).sum() / 3600
-        assert output[column] == pytest.approx(mean, abs=1e-6)
-    assert output["tsoil_layer"] == pytest.approx(static["soil_temperature_initial"] + layer[-1])
-    assert abs(output["hfg_bottom"] - kb * layer[-1]) > 0.1
-
-
 def test_radiative_reference_resolves_transient_at_sixty_seconds(probe, simulate):
     case = build_case(probe, 11)
     forcing = case.forcing.to_dict("records")
@@ -159,18 +136,88 @@ def test_rounded_reference_keeps_margin_at_largest_declared_capacity(probe, simu
 
 
 @pytest.mark.parametrize("name", ["reference_soil_heat", "reference_frozen_soil", "reference_half_soil"])
-def test_reference_runs_existing_surface_case_without_thermal_settings(tmp_path, name):
-    # `ht run --model reference_soil_heat` also selects this existing probe.
-    # Its forcing specifies no thermal layer, so fixed model defaults apply.
+def test_prescribed_net_radiation_case_is_incompatible_before_adapter_execution(tmp_path, name, monkeypatch):
+    # These references consume incoming radiation and a configured layer.
+    # The older net-radiation surface case cannot supply those inputs.
     surface_probe = registry.find_probe("energy/surface-energy-closure")
-    case = build_case(surface_probe, 11)
-    assert "soil_heat_capacity_areal" not in case.static
     model = registry.find_model(name)
-    run = get_runner(model).run(model, surface_probe, case, tmp_path)
-    assert len(run.table) == case.n_steps
-    assert np.isfinite(run.table.tsoil_layer).all()
-    assert get("energy_closure")(run, surface_probe, {}).status == PASS
-    assert get("energy_closure_by_phase")(run, surface_probe, {}).status == PASS
+    monkeypatch.setattr(type(get_runner(model)), "run", lambda *args: pytest.fail("incompatible adapter ran"))
+    outcome = run_probe(model, surface_probe, [11], workdir=tmp_path)
+    assert (outcome.verdict, outcome.reason) == (NOT_SCORED, INCOMPATIBLE)
+    assert any("rsds, rlds" in issue for issue in outcome.incompatible)
+    assert any("soil_heat_capacity_areal" in issue for issue in outcome.incompatible)
+
+
+@pytest.mark.parametrize("kind,key", [
+    ("forcing", "rsds"), ("forcing", "rlds"),
+    ("static", "soil_heat_capacity_areal"),
+    ("static", "soil_layer_depth_m"),
+    ("static", "soil_temperature_initial"),
+])
+def test_missing_case_input_is_incompatible_instead_of_adapter_error(probe, tmp_path, monkeypatch, kind, key):
+    case = build_case(probe, 11)
+    if kind == "forcing":
+        case.forcing = case.forcing.drop(columns=key)
+    else:
+        del case.static[key]
+    model = registry.find_model("reference_soil_heat")
+    monkeypatch.setattr(harness, "build_case", lambda *args: case)
+    monkeypatch.setattr(type(get_runner(model)), "run", lambda *args: pytest.fail("incompatible adapter ran"))
+    outcome = run_probe(model, probe, [11], workdir=tmp_path)
+    assert (outcome.verdict, outcome.reason) == (NOT_SCORED, INCOMPATIBLE)
+    assert f"{kind} does not provide {key}" in outcome.incompatible
+
+
+@pytest.mark.parametrize("kind,key", [
+    ("forcing", "rsds"), ("forcing", "rlds"),
+    ("static", "soil_heat_capacity_areal"),
+    ("static", "soil_layer_depth_m"),
+    ("static", "soil_temperature_initial"),
+])
+def test_outputs_alone_do_not_qualify_a_model_without_declared_case_consumption(probe, tmp_path, kind, key):
+    model = registry.find_model("reference_soil_heat")
+    model = replace(model, **{f"needs_{kind}": tuple(
+        item for item in getattr(model, f"needs_{kind}") if item != key
+    )})
+    assert model.missing_for(probe) == []
+    outcome = run_probe(model, probe, [11], workdir=tmp_path)
+    assert (outcome.verdict, outcome.reason) == (NOT_SCORED, INCOMPATIBLE)
+    assert f"model does not declare that it consumes {kind} {key}" in outcome.incompatible
+
+
+def test_configured_depth_and_capacity_define_the_actual_lumped_layer(probe, tmp_path):
+    model = registry.find_model("reference_soil_heat")
+    case = build_case(probe, 11)
+    original = get_runner(model).run(model, probe, case, tmp_path / "original")
+    # Depth defines the reporting control volume. At unchanged areal
+    # capacity a deeper homogeneous layer has lower Cv, not extra storage.
+    deeper = replace(case, static=dict(case.static, soil_layer_depth_m=2 * case.static["soil_layer_depth_m"]))
+    same_capacity = get_runner(model).run(model, probe, deeper, tmp_path / "same-capacity")
+    pd.testing.assert_frame_equal(original.table, same_capacity.table)
+    layer = same_capacity.meta["thermal_layer"]
+    assert layer["bottom_depth_m"] == 2 * original.meta["thermal_layer"]["bottom_depth_m"]
+    assert layer["heat_capacity_volumetric_j_m3_k"] == 0.5 * original.meta["thermal_layer"]["heat_capacity_volumetric_j_m3_k"]
+    # With the same material Cv, doubling depth doubles C_A. The actual
+    # simulated response must then change, while the layer budget closes.
+    deeper.static["soil_heat_capacity_areal"] *= 2
+    same_material = get_runner(model).run(model, probe, deeper, tmp_path / "same-material")
+    assert same_material.table.tsoil_layer.iloc[35] < original.table.tsoil_layer.iloc[35]
+    assert get("soil_heat_storage")(same_material, probe, {}).status == PASS
+    assert same_material.meta["thermal_layer"]["heat_capacity_volumetric_j_m3_k"] == original.meta["thermal_layer"]["heat_capacity_volumetric_j_m3_k"]
+
+
+def test_initial_temperature_is_used_even_when_it_differs_from_air(probe, tmp_path):
+    case = build_case(probe, 11)
+    air = case.forcing.tas.iloc[0] + 273.15
+    case.static["soil_temperature_initial"] = air + 3.0
+    model = registry.find_model("reference_soil_heat")
+    run = get_runner(model).run(model, probe, case, tmp_path)
+    initial = case.static["soil_temperature_initial"]
+    # A warmer initialized layer cools toward the air, rather than silently
+    # starting at air temperature. The first interval uses that initial T.
+    assert air < run.table.tsoil_layer.iloc[0] < initial
+    storage = case.static["soil_heat_capacity_areal"] * (run.table.tsoil_layer.iloc[0] - initial) / 3600
+    assert run.table.hfg.iloc[0] - run.table.hfg_bottom.iloc[0] == pytest.approx(storage, abs=1e-8)
 
 
 @pytest.mark.parametrize("name,scale", [
@@ -188,6 +235,15 @@ def test_actual_adapters_keep_fluxes_while_controls_change_temperature(probe, si
     np.testing.assert_allclose(run.table.tsoil_layer, initial + scale * (correct.tsoil_layer - initial), atol=1e-12)
     assert run.meta["model"]["name"] == name
     assert run.meta["radiation_input"] == "incoming rsds and rlds"
+    assert run.meta["thermal_layer"] == {
+        "top_depth_m": 0.0,
+        "bottom_depth_m": case.static["soil_layer_depth_m"],
+        "heat_capacity_areal_j_m2_k": case.static["soil_heat_capacity_areal"],
+        "heat_capacity_volumetric_j_m3_k": case.static["soil_heat_capacity_areal"] / case.static["soil_layer_depth_m"],
+        "initial_temperature_k": initial,
+    }
+    assert run.meta["time_convention"]["time"] == "interval start"
+    assert "interval-end" in run.meta["time_convention"]["tsoil_layer"]
     # Use the reference's own net-radiation output for this supplemental
     # surface identity. The shared storage case supplies incoming SW/LW,
     # not the prescribed Rn expected by the old surface-energy criteria.

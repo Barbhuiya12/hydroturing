@@ -12,8 +12,9 @@ r = hfg - hfg_bottom - C_A * (T_end - T_start) / dt    [W m-2]
 `hfg` is heat entering at the actual soil surface; `hfg_bottom` is heat leaving
 at the layer's lower boundary. Both are downward-positive interval means.
 `tsoil_layer` is the **mean temperature of that same layer at the interval
-end**, in K. `C_A` is its constant areal heat capacity in J m-2 K-1; `dt` is
-in seconds. Temperature is a diagnostic, never a water storage.
+end**, in K. It is distinct from the instantaneous surface diagnostic `ts`.
+`C_A` is its constant areal heat capacity in J m-2 K-1; `dt` is in seconds.
+Temperature is a diagnostic, never a water storage.
 
 For each of the heating and recovery phases, require:
 
@@ -75,6 +76,20 @@ its output. `soil_heat_capacity_areal` is the resulting fixed value used by
 the criterion. Adapters configure the material and layer from these inputs,
 never estimate capacity from fluxes or temperature changes.
 
+The control volume is `[0, soil_layer_depth_m]`. A lumped layer may consume
+the effective `soil_heat_capacity_areal` directly: it already includes the
+depth and material mixture. A native multilayer model must configure the
+matching layer and report its mean temperature and two boundary fluxes.
+Using a different depth or heat capacity does not test the stated case.
+
+The probe declares its forcing and static requirements. An adapter must
+declare those inputs in `needs_*` or `uses_*` and actually apply them; a model
+unable to configure the case is `N/A (INCOMPATIBLE)`. Layer metadata and the
+documented native-parameter mapping support review, but declarations alone
+do not verify consumption. A required output capability absent from the
+manifest gives `N/A (INCOMPLETE)`; an omitted output promised by the manifest
+is a protocol error.
+
 A real model can retain tiny moisture changes from numerical surface updates.
 In a dry-case validation, quantify their storage-rate effect using native
 capacity and compare it with the existing allowance. Do not silently replace
@@ -90,15 +105,12 @@ those fluxes with the same RK4 quadrature. No boundary flux is inferred from
 the storage residual. Its fixed deep reservoir and exchange coefficients are
 properties of this synthetic reference, not requirements on other models.
 
-For other surface-energy probes that omit the thermal settings, the reference
-uses a fixed 0.2 m layer with areal heat capacity 400,000 J m-2 K-1, sensible
-exchange 12 W m-2 K-1, top conductance 6 W m-2 K-1 and bottom conductance
-1 W m-2 K-1. Missing initial and deep temperatures use only the first forcing
-row's air temperature. Supplied settings override those defaults in the older
-net-radiation input format. Both broken controls share these
-defaults. They configure the synthetic reference and do not fill missing
-outputs from another model. The new shared-radiation case supplies the layer
-and material; the reference's exchange coefficients remain model parameters.
+All three references require `pr`, `tas`, incoming `rsds` and `rlds`, plus
+explicit `soil_layer_depth_m`, `soil_heat_capacity_areal` and
+`soil_temperature_initial`. They do not accept prescribed net radiation or
+substitute a default thermal layer. Cases lacking these inputs are
+`N/A (INCOMPATIBLE)` before the adapter runs. The fixed sensible exchange
+and top/bottom conductances remain reference-model parameters.
 
 | Reference | Change to the correct solution | Expected storage verdict |
 | --- | --- | --- |
@@ -112,19 +124,33 @@ disagreement between those fluxes and storage. Passing does not establish
 accurate temperature or thermal inertia: equal top and bottom fluxes with
 constant temperature, for example, satisfy this necessary budget condition.
 
+The exact-zero case also passes: zero boundary fluxes and constant temperature
+satisfy the equation. The result records `zero_boundary_fluxes` and
+`zero_temperature_change` and reports **no thermal response exercised** when
+both are true. This does not demonstrate a correct response to heating.
+Incoming shortwave alone supplies no universal minimum ground flux or
+temperature rise while models retain their own surface exchange. Adding such
+a threshold would require a separate, physically justified response test.
+
 The first version applies only when a model can represent the declared layer
 and prescribed material, and supply matching fluxes and temperature. A
 multilayer model can report the upper declared layer and its actual lower-face
 flux. Materially changing heat capacity or freeze-thaw storage cannot be
 ignored when applying this constant-capacity formula.
 
+This probe covers a finite surface layer. The broader energy proposal
+[#50](https://github.com/Flood-Lab/HydroTuring/issues/50) can address distinct
+whole-column storage over longer periods; that budget must also include its
+bottom flux unless a zero-flux boundary is explicitly justified.
+
 ## Reproducing a failure
 
 The optional [Noah-MP checks](../../../docs/noahmp-soil-heat-validation.md)
 include a fixed-moisture thermal component, an exploratory moist HRLDAS run,
 and complete HRLDAS runs on this generator's five actual cases. The generated
-case validation uses the unchanged registered criterion and prescribed
-capacity. Native capacity drift is quantified separately. This optional
+case validation uses the same budget equation, allowance and prescribed
+capacity. Saved native outputs can be rescored after implementation changes.
+Native capacity drift is quantified separately. This optional
 physical validation does not register Noah-MP as a benchmark model or add it
 to the mandatory reference gate.
 

@@ -55,7 +55,23 @@ interval's start. Emit the temperature during spinup too, so the last spinup
 row supplies the initial temperature of the first scored interval. Document
 the layer bounds and heat capacity. Use the model's own fluxes, not fluxes
 reconstructed from the temperature change being checked. Missing diagnostics
-are treated like other missing required outputs: `FAIL (INCOMPLETE)`.
+that the manifest does not declare give `N/A (INCOMPLETE)`. Declaring a
+diagnostic but omitting it from the output is a protocol error. The separate
+`ts` diagnostic is instantaneous surface temperature for radiative checks;
+it cannot replace the interval-end mean-layer `tsoil_layer`.
+
+For the soil-storage probe, the control volume extends from the surface to
+`soil_layer_depth_m`, with prescribed `soil_heat_capacity_areal` and
+`soil_temperature_initial`. Configure that layer before running the model.
+The effective areal capacity already includes its thickness; it is not a
+coefficient to fit from the output. A model unable to represent these
+conditions is `N/A (INCOMPATIBLE)`, not a physics violation.
+
+The probe's `requires.forcing` and `requires.static` must match inputs the
+model declares in `needs_*` or `uses_*`. Declare only inputs the adapter
+actually consumes, and document their mapping to native parameters. Layer
+metadata makes that mapping auditable; a matching declaration alone does not
+prove that the model used it. See the [soil-storage case](../probes/energy/soil-heat-storage-consistency/README.md).
 
 ## 2. Write the adapter
 

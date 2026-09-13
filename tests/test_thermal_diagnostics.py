@@ -13,7 +13,7 @@ import yaml
 from hydroturing import registry
 from hydroturing.criteria import get
 from hydroturing.criteria.base import make_window, reported_states
-from hydroturing.harness import run_probe, verify_adapter_contract
+from hydroturing.harness import build_case, run_probe, verify_adapter_contract
 from hydroturing.protocol import Case, ProtocolError, RunResult, read_result, stage
 from hydroturing.scoring import INCOMPLETE, NOT_SCORED
 from hydroturing.spec import SpecError, load_model, load_probe
@@ -90,7 +90,7 @@ def test_temperature_cannot_be_declared_as_a_water_requirement(mass_probe, tmp_p
     raw["requires"]["states"].append("tsoil_layer")
     (probe_dir / "generate.py").write_text("# Only manifest loading is tested.\n")
     (probe_dir / "probe.yaml").write_text(yaml.safe_dump(raw))
-    with pytest.raises(SpecError, match="requires.diagnostics"):
+    with pytest.raises(SpecError, match="unknown variables in requires.*tsoil_layer"):
         load_probe(probe_dir)
 
 
@@ -135,6 +135,18 @@ def test_missing_or_nonfinite_required_temperature_is_rejected(case, thermal_pro
     _write_result(tmp_path, case, **columns)
     with pytest.raises(ProtocolError, match="tsoil_layer"):
         read_result(tmp_path, case, thermal_probe, 0.0)
+
+
+def test_existing_skin_temperature_keeps_criterion_level_infinity_handling(tmp_path):
+    probe = registry.find_probe("energy/radiation-consistency")
+    case = build_case(probe, 11)
+    temperatures = np.full(case.n_steps, 290.0)
+    temperatures[case.spinup_steps] = np.inf
+    _write_result(tmp_path, case, rlus=np.full(case.n_steps, 400.0), ts=temperatures)
+    run = read_result(tmp_path, case, probe, 0.0)
+    result = get("radiative_identity")(run, probe, {})
+    assert result.status == "fail"
+    assert result.diagnostics["non_finite_steps"] == 1
 
 
 def test_layer_warming_does_not_change_water_closure(case, mass_probe):
