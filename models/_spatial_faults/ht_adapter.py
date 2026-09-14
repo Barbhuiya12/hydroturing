@@ -34,6 +34,10 @@ def simulate(forcing, static, dt_days=1.0, fault="loss", severity=1.0):
     active = outside(static) and severity > 0.0
     used_static = dict(static)
     used_forcing = [dict(r) for r in forcing]
+    if active and fault == "capacity":
+        # Retain reference capacities instead of adapting to the supplied basin.
+        for key, fixed in (("soil_capacity_mm", 320.0), ("canopy_capacity_mm", 2.0)):
+            used_static[key] += severity * (fixed - used_static[key])
     if active and fault == "forcing":
         for r in used_forcing:
             r["pr"] *= 1.0 - 0.2 * severity
@@ -41,13 +45,7 @@ def simulate(forcing, static, dt_days=1.0, fault="loss", severity=1.0):
     if not active:
         return rows
     for row, forcing_row in zip(rows, forcing):
-        if fault == "capacity":
-            # A fixed export offset, including spinup: differences cancel in
-            # the budget, but absolute storage exceeds the supplied capacity.
-            # Only a diagnostic fixture; never applied to submitted outputs.
-            row["mrso"] += severity * (static["soil_capacity_mm"] + 1.0)
-            row["canopy"] += severity * (static["canopy_capacity_mm"] + 1.0)
-        elif fault == "loss":
+        if fault == "loss":
             # Wrong inverse scaling of two exported output heads; stores are
             # unchanged. Exports disappear from the report, creating water.
             row["mrro"] *= 1.0 - 0.2 * severity
@@ -91,7 +89,7 @@ def main():
         writer.writerows(rows)
     (root / request["output"]["run"]).write_text(json.dumps({
         "status": "ok", "fixture": f"spatial_{args.fault}", "n_steps": len(rows),
-        "notes": "Deliberately invalid report outside a fixed attribute domain; diagnostic fixture only."}))
+        "notes": "Attribute-dependent diagnostic fixture; target failures vary by case."}))
     return 0
 
 

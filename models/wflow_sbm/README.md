@@ -262,7 +262,7 @@ ht run --model wflow_sbm --gate-seeds
 
 ## Result
 
-**FAIL (VIOLATION), 15 of 18 probes passed**, adapter `1.0.4-ht.4`, on the gate seeds, every
+**FAIL (VIOLATION), 16 of 19 probes passed**, adapter `1.0.4-ht.4`, on the gate seeds, every
 case on the full record (`window_days: full`).
 
 | Probe | Verdict | Reason | Detail |
@@ -466,3 +466,8 @@ Putting the saturated store in `mrso` moves no result: `mrso` stays inside its b
 closure seed. The dry-down and runoff bounds would add an initial `gw` to the capacity if one
 were reported. None is, so they are held to the stated capacities, and they pass or fail here
 for reasons that do not involve it.
+
+### Ungauged attribute-domain evaluation
+
+`mass/ungauged-basin-closure` passes on all 12 fixed seeds. The archive now contains 16 PASS out of 19 scored probes, with 5 N/A. The prescribed state bounds are evaluated against the native outputs; this is not a test of capacity consumption. See the [probe coverage table](../../probes/mass/ungauged-basin-closure/README.md#storage-bound-coverage).
+The archive also includes `energy/soil-heat-storage-consistency` as N/A (INCOMPLETE); its required heat-storage diagnostics are not reported.

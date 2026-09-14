@@ -145,7 +145,7 @@ Contributed by Taiqi Lian.
 ### `mass/ungauged-basin-closure` &middot; **merged**
 Full-window water budgets on one independently generated catchment per seed,
 with soil/canopy capacities sampled across an experimental reference domain.
-Uses native catchment-closure criteria and four physical references; annual
+Uses native catchment-closure criteria, one exact reference and three physical references; annual
 residuals are separate diagnostics. Catches attribute-dependent budget,
 capacity, forcing and partition errors.
 Contributed by Shunan Zhou (Dalian University of Technology, Dalian, China).

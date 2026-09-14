@@ -394,7 +394,7 @@ of their own.
 
 ## Result
 
-**FAIL (ERROR), 15 of 18 probes passed, 4 N/A (INCOMPLETE).** These are the
+**FAIL (ERROR), 16 of 19 probes passed, 5 N/A (INCOMPLETE).** These are the
 rows of the full gate-seed run of `5.0.0-onecell.5`, made on the emulated host
 described under "Native re-run". The verdict is ERROR because two probes ran
 out of time on that host. Any ERROR among the scored probes makes the verdict
@@ -409,9 +409,9 @@ budget for each case, and every wet event closes to 1e-13 mm.
 are to be replaced by a native x86-64 evaluation; "Native re-run" gives the
 commands and the row replacement.
 
-- **N/A (INCOMPLETE), 4, not scored:** `energy/evaporative-partition`,
+- **N/A (INCOMPLETE), 5, not scored:** `energy/evaporative-partition`,
   `energy/latent-heat-et-consistency`, `energy/surface-energy-closure` and
-  `energy/radiation-consistency`. LISFLOOD reports no heat fluxes and no
+  `energy/radiation-consistency`, plus `energy/soil-heat-storage-consistency`. LISFLOOD reports no heat fluxes and no
   surface temperature, so these probes cannot ask it anything.
   They are neither a pass nor a fail, and do not decide the verdict.
 - **ERROR, 2:** `mass/precipitation-counterfactual` and
@@ -426,12 +426,12 @@ commands and the row replacement.
     none. That leaves a residual of 82.9 to 66.7% against a 5% limit;
     `closure` and `state_bounds` pass.
   - On a host fast enough for the budget, the first should PASS and the second
-    be VIOLATION. The model's verdict would then be FAIL (VIOLATION), with 16
-    of 18 probes passed and 4 N/A.
+    be VIOLATION. The model's verdict would then be FAIL (VIOLATION), with 17
+    of 19 probes passed and 5 N/A.
 - **VIOLATION, 1:** `mass/resolution-invariance`. Rain that falls within an
   hour runs off, so `mrro` differs by 13.0% of `pr` between PT1H and PT1D,
   against a 10% limit.
-- **PASS, 15:**
+- **PASS, 16:**
   - `energy/pet-consistency`;
   - `mass/antecedent-monotonicity`, `mass/area-invariance`,
     `mass/catchment-closure`, `mass/causality`, `mass/dry-down`,
@@ -439,7 +439,7 @@ commands and the row replacement.
   - `mass/phase-counterfactual`, `mass/response-nonnegativity`,
     `mass/runoff-bounds`, `mass/steady-state`, `mass/time-origin-invariance`
     and `mass/warming-response`;
-  - `momentum/routing-conservation`.
+  - `momentum/routing-conservation` and `mass/ungauged-basin-closure`.
 
   The budget closes to 1e-13 mm per step. The harness flags `suspicious_exact`
   on `mass/catchment-closure` and `mass/time-origin-invariance`; "What the
@@ -456,8 +456,8 @@ Against the `.2` rows:
   new since `.2`, is N/A too.
 - No other probe's verdict moved.
 
-The standing counts passes out of the 18 probes that could score LISFLOOD; the
-four N/A energy probes are in neither number.
+The standing counts passes out of the 19 probes that could score LISFLOOD; the
+five N/A energy probes are in neither number.
 
 Against the `.3` rows, `.4` changes the environmental-flow reserve and the
 channel's bottom width, bankfull depth and gradient to the headwater values.
@@ -603,3 +603,7 @@ model's own at its reference routing sub-step. The archived cases need about
 ht verify-adapter --model lisflood
 ht run --model lisflood --gate-seeds --markdown
 ```
+
+### Ungauged attribute-domain evaluation
+
+`mass/ungauged-basin-closure` passes on all 12 fixed seeds. The archive now contains 16 PASS out of 19 scored probes, with 5 N/A. The prescribed state bounds are evaluated against the native outputs; this is not a test of capacity consumption. See the [probe coverage table](../../probes/mass/ungauged-basin-closure/README.md#storage-bound-coverage).

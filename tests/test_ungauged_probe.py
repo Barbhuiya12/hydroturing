@@ -61,7 +61,10 @@ def test_causal_faults_are_dormant_inside_domain_and_detected_outside(probe, fau
             assert rows == module.bucket.simulate(records, case.static)
             assert all(r.passed for r in scores.values())
         else:
-            assert not scores[criterion].passed
+            if fault != "capacity":
+                assert not scores[criterion].passed
+            elif seed % 8 in [3, 5, 7]:
+                assert scores[criterion].passed
             if fault in ["capacity", "et", "negative"]:
                 assert scores["closure"].passed
 
@@ -90,35 +93,32 @@ def test_seven_day_response_screen_is_enabled(probe):
     assert "responds to precipitation" in scores["non_degenerate"].message
 
 
-def test_capacity_offset_is_constant_and_only_changes_absolute_stores(probe):
-    from hydroturing.criteria.bounds import state_bounds
+def test_capacity_blind_control_uses_native_fixed_capacities(probe):
     module = load(REPO_ROOT / "models/_spatial_faults/ht_adapter.py")
-    for seed in range(8):
+    for seed in list(range(40)) + [426016150, 1439920378]:
         case = build_case(probe, seed)
         records = case.forcing.to_dict("records")
-        base = pd.DataFrame(module.bucket.simulate(records, case.static))
-        shifted = pd.DataFrame(module.simulate(records, case.static, fault="capacity"))
-        for state, capacity in [("mrso", "soil_capacity_mm"), ("canopy", "canopy_capacity_mm")]:
-            offset = case.static[capacity] + 1.0 if module.outside(case.static) else 0.0
-            np.testing.assert_allclose(shifted[state] - base[state], offset, atol=1e-12)
-            np.testing.assert_allclose(np.diff(shifted[state]), np.diff(base[state]), atol=1e-12)
-            score = state_bounds(RunResult(case, shifted, {}, 0), probe, {state: [0, capacity]})
-            assert score.passed == (not module.outside(case.static))
-        pd.testing.assert_frame_equal(shifted.drop(columns=["mrso", "canopy"]), base.drop(columns=["mrso", "canopy"]))
+        fixed = dict(case.static)
+        if module.outside(case.static):
+            fixed.update(soil_capacity_mm=320.0, canopy_capacity_mm=2.0)
+        rows = module.simulate(records, case.static, fault="capacity")
+        assert rows == module.bucket.simulate(records, fixed)
+        assert module.simulate(records, case.static, fault="capacity", severity=0) == module.bucket.simulate(records, case.static)
+        scores = {r.name: r for r in evaluate_criteria({"control": RunResult(case, pd.DataFrame(rows), {}, 0)}, probe)}
+        assert scores["closure"].passed
+        if seed in [426016150, 1439920378]:
+            assert not scores["state_bounds"].passed
+        if seed % 8 in [3, 5, 7]:
+            assert scores["state_bounds"].passed
 
 
-def test_capacity_consumption_is_required(probe):
+def test_fitted_models_are_not_excluded_by_capacity_consumption(probe):
     from hydroturing.harness import compatibility_issues
     from hydroturing.registry import find_model
     case = build_case(probe, 0)
-    assert set(probe.requires_static) == {"soil_capacity_mm", "canopy_capacity_mm"}
-    for name in ("reference_bucket", "flex_lumped", "flex_topo"):
-        model = find_model(name)
-        assert not compatibility_issues(model, probe, case)
-        undeclared = replace(model, uses_static=(), needs_static=())
-        assert any("soil_capacity_mm" in x for x in compatibility_issues(undeclared, probe, case))
-    for name in ("dhbv2", "sacsma_snow17"):
-        assert compatibility_issues(find_model(name), probe, case)
+    assert not probe.requires_static
+    for name in ("reference_bucket", "flex_lumped", "flex_topo", "sacsma_snow17", "dhbv2", "reference_cheater", "reference_degenerate"):
+        assert not compatibility_issues(find_model(name), probe, case)
 
 
 def test_annual_diagnostics_carry_prior_states_and_do_not_change_full_verdict(probe):

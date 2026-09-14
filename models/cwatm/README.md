@@ -18,7 +18,7 @@ adapter can read rather than reconstruct.
 
 ## Verdict
 
-**FAIL (VIOLATION)**, 14 of 18 probes passed, on the gate seeds and the full
+**FAIL (VIOLATION)**, 15 of 19 probes passed, on the gate seeds and the full
 record of every probe (`ht run --model cwatm --gate-seeds`). Four probes fail
 as VIOLATION, and they are not alike.
 
@@ -429,3 +429,8 @@ at one CPU a three-year record (1,095 rows) takes about 2.5 s and a ten-year
 record
 about 9 s, most of it CWatM opening its netCDF stacks once per step, well
 inside the 60 s budget of the shortest probe.
+
+### Ungauged attribute-domain evaluation
+
+`mass/ungauged-basin-closure` passes on all 12 fixed seeds. The archive now contains 15 PASS out of 19 scored probes, with 5 N/A. The prescribed state bounds are evaluated against the native outputs; this is not a test of capacity consumption. See the [probe coverage table](../../probes/mass/ungauged-basin-closure/README.md#storage-bound-coverage).
+The archive also includes `energy/soil-heat-storage-consistency` as N/A (INCOMPLETE); its required heat-storage diagnostics are not reported.

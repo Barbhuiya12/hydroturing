@@ -804,3 +804,7 @@ is evaluated on its full record. `run.json` carries, for every case:
 - SUMMA's snow share against the probe rule's, and the canopy's net energy
   flux;
 - SUMMA's balance diagnostics and the net-radiation gap.
+
+### Ungauged attribute-domain diagnostic
+
+The archived `mass/ungauged-basin-closure` result is FAIL (VIOLATION), accepted and reproduced in the [maintainer review](https://github.com/Flood-Lab/HydroTuring/pull/74#pullrequestreview-5192956786). Closure passes on all twelve seeds. ET/PET fails on all seven temperate winter-wet, cool-maritime and warm-humid cases, including the two reference-capacity cases, and passes the five summer-rainfall and seasonally-water-limited cases. Canopy-capacity and PET-to-atmosphere semantics merit a separate adapter investigation; these observations are not a water-leakage finding. Full diagnostic and model report: [SUMMA adapter investigation](https://github.com/Flood-Lab/HydroTuring/issues/81).

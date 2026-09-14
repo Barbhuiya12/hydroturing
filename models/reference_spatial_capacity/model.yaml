@@ -1,6 +1,6 @@
 name: reference_spatial_capacity
 version: 1.0.0
-description: Attribute-dependent fixed storage-output offset fault. Diagnostic fixture for ungauged-basin-closure;
+description: Attribute-dependent fixed internal-capacity fault. Diagnostic fixture for ungauged-basin-closure;
   not a scientific model.
 authors:
 - Shunan Zhou

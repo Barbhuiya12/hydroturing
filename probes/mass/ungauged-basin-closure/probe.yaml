@@ -12,7 +12,6 @@ description: One independent catchment per seed samples soil and canopy capaciti
   across an experiment-defined reference domain. Native criteria check the complete
   reported water budget, state bounds, ET, variability and supplied precipitation.
 requires:
-  static: [soil_capacity_mm, canopy_capacity_mm]
   fluxes:
   - pr
   - evspsbl
@@ -76,7 +75,10 @@ baselines:
   - reference_bucket
   - flex_lumped
   - flex_topo
+  - sacsma_snow17
   must_fail:
+    reference_cheater: state_bounds
+    reference_degenerate: non_degenerate
     reference_spatial_loss: closure
     reference_spatial_gain: closure
     reference_spatial_capacity: state_bounds

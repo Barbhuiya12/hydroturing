@@ -70,27 +70,25 @@ The native seven-day rainfall/runoff correlation screen is enabled (`min_respons
 
 `scripts/diagnose_ungauged_closure.py` reports ten annual residuals, each using the actual inventory immediately before that year. It regenerates the recorded seed, checks input identity and validates the stored output through the native protocol. It never modifies the standard verdict or archive.
 
-Opposite annual errors may cancel in the full budget. Annual exceedances are therefore visible, but full-window PASS does not establish annual or timestep closure. A regression test explicitly exercises this limitation. Other possible escapes include a conservative attribute-blind small store, mutually compensating fabricated terms and errors below the engineering tolerance. Passing does not establish prediction accuracy, correct capacity sensitivity or the physical provenance of self-reported external exchange.
+Annual errors can cancel over the full record; the separate annual diagnostics expose this without changing the official full-window verdict.
 
 ## Positive and negative evidence
 
-The three positive references are `reference_bucket`, `flex_lumped` and `flex_topo`, with unchanged numerical equations. Their existing capacity mappings are declared in `model.yaml`. FLEX-lumped maps the supplied capacities to `Sumax` and `Imax`; FLEX-topo scales the area-weighted soil capacities and sets interception capacity in each unit.
+The positive references are the exact `reference_bucket` and three physical models: `flex_lumped`, `flex_topo` and `sacsma_snow17`. They run with unchanged numerical equations. Fitted models are evaluated with their native parameters; the probe does not require capacity-input consumption or override learned parameters. Capacities remain prescribed evaluation bounds, as in catchment-closure. Passing establishes the tested closure and bounds, not correct capacity use or catchment adaptation.
 
-The probe requires consumption of both `soil_capacity_mm` and `canopy_capacity_mm` through the existing `requires.static` mechanism. Declaring an input is not enough: its native mapping must match the reported storage. Wflow, SUMMA, CWatM and LISFLOOD also have existing mappings, now declared without changing their model equations. Models lacking the required input capability receive the framework's native incompatibility outcome. SAC-SMA has no canopy store and is no longer a must-pass reference for this two-capacity experiment; δHBV is not given a dedicated capacity override. Google also lacks budget outputs. All ten previously evaluated models receive a native archive record on this probe; no pending-evaluation exception is introduced.
+Seven attribute-dependent controls share the bucket implementation and are inactive inside the experimental reference domain. They read no case IDs, generator seeds, future rows or evaluation boundaries. The table lists the target check and additional failures observed across the fixed gate seeds.
 
-Seven causal fixtures use one shared implementation of the existing bucket equations. They are inactive inside the experimental reference domain, and read no case IDs, generator seeds, future data or evaluation boundaries. Their failures are:
-
-| Fixture suffix | Out-of-domain fault | Required criterion | Budget may still close? |
+| Fixture suffix | Out-of-domain fault | Target criterion | Additional failing criteria |
 |---|---|---|---|
-| loss | Export ET and Q at 0.8 of their values | closure | No |
-| gain | Add 0.1P to Q without a debit | closure | No |
-| capacity | Add fixed soil and canopy reporting offsets, each equal to its supplied capacity + 1 mm | state_bounds | Yes |
-| forcing | Simulate and echo 0.8P | forcing_fidelity | Not against supplied P |
-| et | ET=1.1PET with compensating Q | et_plausible | Yes |
-| negative | Reverse Q and compensate in ET | non_degenerate | Yes |
-| frozen | Zero Q/ET with constant states | non_degenerate | No |
+| loss | Export ET and Q at 0.8 of their values | closure | None |
+| gain | Add 0.1P to Q without a debit | closure | None |
+| capacity | Use fixed internal soil/canopy capacities of 320/2 mm | state_bounds | None |
+| forcing | Simulate and echo 0.8P | forcing_fidelity | closure |
+| et | ET=1.1PET with compensating Q | et_plausible | non_degenerate |
+| negative | Reverse Q and compensate in ET | non_degenerate | et_plausible |
+| frozen | Zero Q/ET with constant states | non_degenerate | closure |
 
-The negative-runoff fixture is caught by the native runoff-ratio check; this probe introduces no separate daily flux-sign criterion. The seven attribute-dependent fixtures are the required negative references. The existing `reference_cheater` and `reference_degenerate` do not consume both required capacities and are not assigned a must-fail verdict on this probe; their other gates are unchanged. The seven new references also pass the ordinary fixed-attribute catchment-closure cross-check, demonstrating why sampling attributes adds evidence beyond that probe. For the capacity fixture, normal bucket dynamics run with the supplied capacities. Only the reported absolute soil and canopy stores receive an offset, constant throughout the run including spinup. At full fault severity each store exceeds its own capacity even in the largest-capacity category, while the identical endpoint offsets cancel from storage differences. This verifies absolute-storage bounds independently of closure. The fault is dormant inside the experimental reference domain. It is not a claim that real models must fail outside that domain, and is never applied to submitted-model results. Regression tests cover all eight attribute categories across all five climates (seeds 0–39), including the large-capacity cases. Fault sizes are declared test levels rather than inferred real-model error rates.
+The capacity control changes native dynamics, not reported storage. It preserves closure and is caught on small-capacity gate cases. Large-capacity cases test closure, not capacity consumption: an upper bound cannot detect an internal store that remains below it. Tests cover all eight attribute categories and five climates, verify the fixed-capacity dynamics, and check the designated small-capacity detections. The other six controls must fail their target check on every out-of-domain test case. Generic `reference_cheater` and `reference_degenerate` controls additionally test state bounds and non-degeneracy. All seven attribute-dependent controls pass the ordinary catchment-closure cross-check, whose capacities lie inside the reference domain.
 
 ## Reproduction
 
@@ -115,21 +113,35 @@ These sources support physically plausible scales and definitions. They do not e
 
 ## Review validation
 
-The revised gate and all 24 suite gates pass. Bucket and both FLEX references also pass all 40 independent attribute/climate combinations (seeds 0–39). Each of the seven fault fixtures is tested across the same categories/climates and passes the ordinary catchment-closure cross-check. The capacity fixture additionally checks each storage bound independently, so one store cannot hide a missing check on the other.
-
-Native archived evaluations, with the original model equations and the 60-second container limit:
+Current evaluation results and per-model storage coverage are summarised below. SUMMA's general-adapter diagnostic is maintained separately from this probe; see the [SUMMA model card](../../../models/summa/README.md). Its archived FAIL is accepted by the maintainer and is not a water-leakage finding.
 
 | Model | Native result |
 |---|---|
 | `reference_bucket` | PASS (OK) |
 | `flex_lumped` | PASS (OK) |
 | `flex_topo` | PASS (OK) |
-| `sacsma_snow17` | N/A (INCOMPATIBLE) |
-| `dhbv2` | N/A (INCOMPATIBLE) |
+| `sacsma_snow17` | PASS (OK) |
 | `google_flood_forecast` | N/A (INCOMPLETE) |
 | `wflow_sbm` | PASS (OK) |
 | `summa` | FAIL (VIOLATION) |
 | `cwatm` | PASS (OK) |
 | `lisflood` | PASS (OK) |
+| `dhbv2` | FAIL (VIOLATION) |
 
-SUMMA passes closure on all 12 seeds but fails companion canopy-storage, ET/PET and runoff-ratio checks. These are not a finding of water leakage or an established solver/probe defect. The general adapter consumes capacity inputs, but native interception parameters do not guarantee the same total-storage ceiling; PET-derived atmospheric inputs also do not guarantee the same potential-ET definition. The [complete SUMMA diagnostic report](SUMMA_DIAGNOSTIC.md) supplies per-seed evidence, distinguishes facts from hypotheses, and gives a concrete adapter/contract follow-up plan. The unchanged [native JSON report](SUMMA_GATE_REPORT.json) accompanies it. No result or threshold was altered for this documentation review.
+## Storage-bound coverage
+
+| Model | Soil bound | Canopy bound | Other nonnegative stores exercised |
+|---|---|---|---|
+| `reference_bucket` | Nonzero storage | Nonzero storage | None |
+| `flex_lumped` | Nonzero storage | Nonzero storage | gw, channel |
+| `flex_topo` | Nonzero storage | Nonzero storage | gw, channel |
+| `sacsma_snow17` | Nonzero storage | Zero throughout | gw, channel |
+| `wflow_sbm` | Nonzero storage | Zero throughout | channel |
+| `summa` | Nonzero storage | Nonzero storage | snw, gw, channel |
+| `cwatm` | Nonzero storage | Nonzero storage | gw, channel |
+| `lisflood` | Nonzero storage | Zero throughout | gw, channel |
+| `dhbv2` | Nonzero storage | Zero throughout | gw, channel |
+
+Coverage describes the 3,650 scored daily rows of all twelve cases. “Nonzero storage” means the bound is exercised on a nonzero reported store, not that it is reached or violated. Zero stores still undergo the formal check but do not exercise its upper bound; zero daily output does not imply interception is absent between outputs. Missing stores are not invented. Google is N/A for missing budget outputs and is excluded from this table.
+
+δHBV passes cumulative closure (worst residual 0.1706% of precipitation) but fails the prescribed soil-storage bound. This is a boundary failure, not a water-leakage result.
