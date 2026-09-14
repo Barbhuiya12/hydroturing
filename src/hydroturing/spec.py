@@ -117,6 +117,10 @@ TRUSTED_SUBPROCESS_MODELS = {
     "reference_radiative",
     "reference_air_emitter",
     "reference_no_reflection",
+    # Geometry-aware positive and deliberately wrong routing-lag baselines.
+    "reference_snyder_router",
+    "reference_instant_router",
+    "reference_inverse_router",
 }
 
 

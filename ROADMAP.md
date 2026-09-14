@@ -220,6 +220,21 @@ Contributed by Xin Lan (Michigan State University).
 ### `momentum/routing-conservation` &middot; **merged**
 The channel store is never negative and never holds more than its hydrograph can.
 
+### `momentum/routing-lag-consistency` &middot; **merged**
+Four synthetic catchments receive the same isolated one-day storm. Their
+areas and Hack-derived channel lengths define duration-corrected Snyder lag
+scales. Each runoff peak must fall inside a factor-of-two Snyder envelope with
+a half-day daily-resolution allowance; adjacent lags may not reverse by more
+than half a day, and the smallest-to-largest lag span must reach two days.
+`reference_snyder_router` passes with a conservative triangular unit
+hydrograph, `reference_instant_router` fails the lag bounds, and
+`reference_inverse_router` fails the scaling criterion. A model must declare
+that it consumes precipitation, area and both channel-length fields; otherwise
+the result is N/A (INCOMPATIBLE), not pass or fail.
+Contributed by Binlan Zhang (Institute of Mountain Hazards and Environment,
+Chinese Academy of Sciences, Chengdu, China; GitHub: binbinlan; ORCID:
+https://orcid.org/0000-0001-9091-3185).
+
 ### `momentum/channel-routing-mass` &middot; starter &middot; **unclaimed**
 Inflow minus outflow minus the change in channel storage, per reach.
 

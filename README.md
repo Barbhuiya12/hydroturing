@@ -68,7 +68,7 @@ not.
 
 ## The probes
 
-Twenty-three: sixteen under mass, six under energy and one under momentum.
+Twenty-four: sixteen under mass, six under energy and two under momentum.
 Each was merged only after the acceptance gate saw it pass its declared
 exact reference and fail a purpose-built broken one on the named criterion.
 Four physical models, a bucket that conserves water exactly, two
@@ -76,8 +76,11 @@ hand-written FLEX models and the NWS's SAC-SMA with Snow-17, must pass
 every probe that can ask them anything; five of the six energy probes need
 outputs they do not report and are not scored for them. A probe that fails a
 physical model is examined before the model is; that is the first thing done
-with any probe pull request. Eleven of the twenty-three can be scored on a model
-that reports runoff and nothing else. `ht list` prints them;
+with any probe pull request. Twelve of the twenty-four require no model output
+beyond runoff. That output-only count includes `momentum/routing-lag-consistency`,
+which is eligible only when the model also declares that it consumes `pr` and
+the three geometry inputs `area_km2`, `main_channel_length_km` and
+`centroid_channel_length_km`. `ht list` prints the probes;
 [ROADMAP.md](ROADMAP.md#probes-we-want) has the ten more we want, all
 unclaimed.
 
@@ -106,6 +109,7 @@ unclaimed.
 | [`energy/radiation-consistency`](probes/energy/radiation-consistency) | energy | The surface temperature a model reports and the upward longwave it reports: do they describe one surface, hour by hour, at the emissivity it was given? | `reference_air_emitter`, `reference_no_reflection` |
 | [`energy/soil-heat-storage-consistency`](probes/energy/soil-heat-storage-consistency) | energy | Does heat retained in a soil layer agree with its temperature change during heating and recovery? | `reference_frozen_soil`, `reference_half_soil` |
 | [`momentum/routing-conservation`](probes/momentum/routing-conservation) | momentum | The channel store is never negative and never holds more than its hydrograph can. | `reference_stuck_router` |
+| [`momentum/routing-lag-consistency`](probes/momentum/routing-lag-consistency) | momentum | The same isolated storm crosses four synthetic catchment geometries: does the runoff peak lie on a broad Snyder travel-time scale and grow across the geometry ladder? | `reference_instant_router`, `reference_inverse_router` |
 
 ## Models
 
@@ -132,6 +136,16 @@ A standing counts the probes a model passed out of the probes that could score
 it. A probe that needs a variable the model does not report, or that the model
 cannot consume, is N/A for it and in neither number, so the totals differ
 between models.
+
+All nine evaluated models are N/A (INCOMPATIBLE) on
+`momentum/routing-lag-consistency`: `google_flood_forecast`, `dhbv2`,
+`wflow_sbm`, `summa`, `cwatm`, `lisflood`, `flex_lumped`, `flex_topo` and
+`sacsma_snow17` do not currently declare consumption of either required
+channel-length field. Several adapters do read area, sometimes only to convert
+runoff depth to discharge, but area alone does not expose the geomorphic travel
+path this probe changes. The new probe therefore leaves every existing N/M
+standing unchanged. N/A is neither a pass nor a failure; it means the probe
+cannot ask the declared model interface this question.
 
 | Model | Kind | What it does | Standing |
 | --- | --- | --- | --- |
@@ -173,6 +187,9 @@ between models.
 | `reference_sublimating` | broken | loses 40% of every snowfall to an unreported sublimation | caught by `phase_invariance` |
 | `reference_thirsty` | broken | evaporates a fixed share of its soil store, never reading demand; conserves water exactly | caught by `demand_consistency` |
 | `reference_stuck_router` | broken | a routing kernel summing to 0.9, so a tenth of every day's runoff never leaves the channel | caught by `routing_conservation` |
+| `reference_snyder_router` | exact | consumes the declared geometry and routes a fixed rain share through a causal, conservative triangular unit hydrograph centred on the duration-corrected Snyder lag | must pass both criteria of `routing-lag-consistency` |
+| `reference_instant_router` | broken | accepts the geometry but returns the storm runoff in the rainfall row at every catchment scale | caught by `lag_time_bounds` |
+| `reference_inverse_router` | broken | uses in-bounds lags of 1, 2, 1 and 3 days in ascending area order | caught by `scaling_monotonicity` |
 | `reference_streamflow_only` | honest limit | reports discharge only, from a store that never reads the temperature | N/A (INCOMPLETE) on budget probes; caught by `response_sign` |
 | `reference_in_sample` | broken | removes surface runoff above a fixed 55 mm daily precipitation cutoff | caught by `event_water_closure` |
 | `reference_calendar` | broken | a recession that drifts with the calendar year | caught by `invariance` (time origin) |
@@ -344,7 +361,7 @@ where that conversation happens, before and alongside the issues.
 
 ## Status
 
-Suite `0.1.0`, pre-release. Twenty-three probes, sixteen mass, six energy, one momentum, synthetic track only. More
+Suite `0.1.0`, pre-release. Twenty-four probes, sixteen mass, six energy, two momentum, synthetic track only. More
 energy and momentum probes, and the real-data track, are next. The harness runs paired cases and
 scores labelled regimes, so the generalisation probes on the roadmap —
 extrapolation in space and time, counterfactual response, invariance — are

@@ -331,6 +331,8 @@ a:focus-visible,button:focus-visible{outline:2px solid var(--accent); outline-of
       <line x1="484" y1="160" x2="552" y2="160" stroke="var(--line)"/>
       <circle cx="488" cy="169.5" r="2.4" fill="var(--pass)"/>
       <text x="496" y="173" class="probe" data-i18n="infra.probe.routing">routing</text>
+      <circle cx="488" cy="183.5" r="2.4" fill="var(--pass)"/>
+      <text x="496" y="187" class="probe" data-i18n="infra.probe.routinglag">travel time</text>
       <rect x="484" y="200" width="68" height="40" rx="5" fill="none" stroke="var(--line-strong)" stroke-dasharray="3 3"/>
       <text x="518" y="224" class="note" data-i18n="infra.wanted" text-anchor="middle">probes wanted</text>
       <text x="417" y="362" class="mono-small" data-i18n="infra.flow" text-anchor="middle">seed → case → run → one bit</text>
@@ -642,6 +644,7 @@ en: {
   "infra.probe.radiation":"radiation",
   "infra.probe.soilheat":"soil heat",
   "infra.probe.routing":"routing",
+  "infra.probe.routinglag":"travel time",
   "infra.flow":"seed → case → run → one bit",
   "infra.s1a":"seeded",
   "infra.s1b":"generator",
@@ -723,6 +726,7 @@ en: {
 <tr><td class="mono">energy/radiation-consistency</td><td>energy</td><td>Do the surface temperature and the upward longwave a model reports describe one surface, hour by hour, at the emissivity it was given?</td><td><span class="tag merged">merged</span></td></tr>
 <tr><td class="mono">energy/soil-heat-storage-consistency</td><td>energy</td><td>Does heat retained in a soil layer agree with its temperature change?</td><td><span class="tag merged">merged</span></td></tr>
 <tr><td class="mono">momentum/routing-conservation</td><td>momentum</td><td>The channel store is never negative and never holds more than its hydrograph can.</td><td><span class="tag merged">merged</span></td></tr>
+<tr><td class="mono">momentum/routing-lag-consistency</td><td>momentum</td><td>Under the same one-day storm, runoff peak lag must match the Snyder-Hack geometric timescale and grow with basin scale.</td><td><span class="tag merged">merged</span></td></tr>
 <tr><td class="mono">mass/extreme-event-closure</td><td>mass</td><td>Event water budgets under overlapping storms targeting synthetic 100-year rainfall depths.</td><td><span class="tag merged">merged</span></td></tr>
 <tr><td class="mono">coupled/snowmelt-energy-water</td><td>coupled</td><td>Melt in the water budget must match the energy spent melting.</td><td><span class="tag wanted">wanted</span></td></tr>
 <tr><td class="mono">mass/snowpack-mass-closure</td><td>mass</td><td>Snowfall minus melt minus sublimation minus the change in snow water.</td><td><span class="tag wanted">wanted</span></td></tr>
@@ -849,6 +853,7 @@ es: {
   "infra.probe.radiation":"radiación",
   "infra.probe.soilheat":"calor suelo",
   "infra.probe.routing":"tránsito",
+  "infra.probe.routinglag":"retardo",
   "infra.flow":"semilla → caso → ejecución → un bit",
   "infra.s1a":"generador",
   "infra.s1b":"con semilla",
@@ -930,6 +935,7 @@ es: {
 <tr><td class="mono">energy/radiation-consistency</td><td>energía</td><td>¿Describen la temperatura superficial y la onda larga ascendente que reporta un modelo una misma superficie, hora a hora, con la emisividad que se le dio?</td><td><span class="tag merged">integrada</span></td></tr>
 <tr><td class="mono">energy/soil-heat-storage-consistency</td><td>energía</td><td>¿Concuerda el calor almacenado en el suelo con su cambio de temperatura?</td><td><span class="tag merged">integrada</span></td></tr>
 <tr><td class="mono">momentum/routing-conservation</td><td>momento</td><td>El almacén del cauce nunca es negativo ni retiene más de lo que cabe en su hidrograma.</td><td><span class="tag merged">integrada</span></td></tr>
+<tr><td class="mono">momentum/routing-lag-consistency</td><td>momento</td><td>Ante la misma tormenta de un día, el retardo del pico de escorrentía debe ajustarse a la escala temporal geométrica de Snyder-Hack y aumentar con la escala de la cuenca.</td><td><span class="tag merged">integrada</span></td></tr>
 <tr><td class="mono">mass/extreme-event-closure</td><td>masa</td><td>Balances de agua por evento bajo tormentas superpuestas con objetivos sintéticos de lluvia de 100 años.</td><td><span class="tag merged">integrada</span></td></tr>
 <tr><td class="mono">coupled/snowmelt-energy-water</td><td>acoplada</td><td>El deshielo del balance hídrico debe coincidir con la energía gastada en fundir.</td><td><span class="tag wanted">se busca</span></td></tr>
 <tr><td class="mono">mass/snowpack-mass-closure</td><td>masa</td><td>Nevada menos deshielo menos sublimación menos el cambio de agua en la nieve.</td><td><span class="tag wanted">se busca</span></td></tr>
@@ -1056,6 +1062,7 @@ zh: {
   "infra.probe.radiation":"辐射一致",
   "infra.probe.soilheat":"土层储热",
   "infra.probe.routing":"汇流演算",
+  "infra.probe.routinglag":"传播时间",
   "infra.flow":"种子 → 案例 → 运行 → 一位判定",
   "infra.s1a":"带种子的",
   "infra.s1b":"生成器",
@@ -1137,6 +1144,7 @@ zh: {
 <tr><td class="mono">energy/radiation-consistency</td><td>能量</td><td>模型报告的地表温度与上行长波辐射，在给定发射率下是否逐小时描述同一个表面？</td><td><span class="tag merged">已合并</span></td></tr>
 <tr><td class="mono">energy/soil-heat-storage-consistency</td><td>能量</td><td>土层留存的热量是否与土温变化一致？</td><td><span class="tag merged">已合并</span></td></tr>
 <tr><td class="mono">momentum/routing-conservation</td><td>动量</td><td>河道蓄水永不为负，也永不超过其单位线所能容纳的量。</td><td><span class="tag merged">已合并</span></td></tr>
+<tr><td class="mono">momentum/routing-lag-consistency</td><td>动量</td><td>在同一场单日暴雨下，径流峰值时滞必须符合 Snyder-Hack 几何时间尺度，并随流域尺度增大。</td><td><span class="tag merged">已合并</span></td></tr>
 <tr><td class="mono">mass/extreme-event-closure</td><td>质量</td><td>叠加降雨以超过合成气候的百年一遇雨量阈值，逐事件检查水量闭合。</td><td><span class="tag merged">已合入</span></td></tr>
 <tr><td class="mono">coupled/snowmelt-energy-water</td><td>耦合</td><td>水量收支中的融雪量必须与融化耗能一致。</td><td><span class="tag wanted">征集中</span></td></tr>
 <tr><td class="mono">mass/snowpack-mass-closure</td><td>质量</td><td>降雪减融雪减升华减雪水当量变化。</td><td><span class="tag wanted">征集中</span></td></tr>

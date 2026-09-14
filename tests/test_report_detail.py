@@ -54,6 +54,10 @@ HEADLINES = {
     "mass/time-origin-invariance": ("invariance",),
     "mass/warming-response": ("response_sign",),
     "momentum/routing-conservation": ("routing_conservation",),
+    "momentum/routing-lag-consistency": (
+        "lag_time_bounds",
+        "scaling_monotonicity",
+    ),
 }
 
 
