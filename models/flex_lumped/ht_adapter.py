@@ -28,10 +28,12 @@ Rates with a time in their units are rescaled to the step exactly as any
 submitted model's must be: per-day fractions as 1 - (1 - k)^dt, per-day
 amounts as amount * dt, the lag in days.
 
-A `stage` is also reported, as a diagnostic rather than a store: it is the
-depth the reach's stored water makes in the channel cross-section, so that
-`momentum/stage-discharge-monotonic` has a gauge to read. It is derived from
-`channel` and is never differenced into any budget.
+A `stage` is also reported, as a diagnostic rather than a store: the depth
+Manning's normal-depth relation gives the reach's own discharge, so that
+`momentum/stage-discharge-monotonic` has a gauge to read. A `dis` in m3/s is
+reported alongside it — the same flow over the catchment area — so the rating
+can be drawn against discharge rather than against a store. Neither is
+differenced into any budget.
 """
 
 from __future__ import annotations
@@ -94,42 +96,44 @@ def per_step(fraction_per_day: float, dt: float) -> float:
     return 1.0 - (1.0 - fraction_per_day) ** dt
 
 
-def stage_of(mrro_mm_per_day: float, gw_mm: float, static: dict, dt: float) -> float:
-    """The level a gauge in the reach would read, in metres.
+def discharge_m3s(runoff_mm_per_day: float, static: dict) -> float:
+    """The reach's discharge, in m3/s, from the runoff over the catchment.
 
-    A stage is a *length* read off a staff gauge in a cross-section, so it is
-    built from the flow the reach is carrying rather than from a catchment
-    depth. Manning's normal depth is the honest bridge between the two: the
-    flow through the channel sets the depth it runs at, and the depth is what
-    a gauge reads.
+    `mrro` is the model's own outflow — the fast reservoir's release plus the
+    slow reservoir's, both already passed through the lag — so it is the whole
+    of what the reach is carrying and nothing else needs adding to it.
+    """
+    area_km2 = float(static.get("area_km2", 0.0))
+    return max(runoff_mm_per_day, 0.0) * 1e-3 * area_km2 * 1e6 / SECONDS_PER_DAY
+
+
+def manning_depth(q_m3s: float, static: dict) -> float:
+    """The depth a steady flow makes in the reach's cross-section, in metres.
+
+    A stage is a *length* read off a staff gauge in a cross-section, and the
+    length is set by the flow passing through it. Manning's normal depth is
+    the honest bridge between the two:
 
         Q   = w * h * (1/n) * h^(2/3) * S^(1/2)
         h   = ( Q * n / (w * sqrt(S)) )^(3/5)
 
-    The flow is the reach's own drain plus the baseflow its groundwater store
-    is releasing: `mrro` is the water in transit that returns the flood, `gw`
-    is the water still on its way down the catchment. The two have different
-    time constants, and the gauge sees both, which is why the level on the
-    rising limb sits below the level the same flow makes once the store behind
-    it has drained.
+    The flow is the reach's own discharge and nothing else. An earlier version
+    added the groundwater store divided by the step, which was wrong twice
+    over: that store's *release* is already inside `mrro` (the slow reservoir
+    drains into the runoff this model reports), so the term counted the same
+    water twice, and dividing the store rather than its release made the gauge
+    read the whole reservoir instead of the water leaving it — six times the
+    real flow at a daily step, and twenty-four times more again at an hourly
+    one, because the divisor shrinks with the step.
 
-    Both terms are flow *rates*, in mm/day: a stage is a reading a gauge would
-    give at an instant, so it cannot depend on how often the model chooses to
-    write a row. An earlier version divided the stores — depths — by `dt` to
-    make a rate, which made the same reach read 78x deeper at PT1M than at
-    PT1D. `mrro` is already a rate and `gw` is turned into one below.
+    The depth is a function of the discharge at the same step, so this gauge
+    reports a single-valued rating: the model has one state carrying the storm
+    and the gauge reads it directly.
     """
-    area_km2 = float(static.get("area_km2", 0.0))
     width_m = float(static.get("width_m", DEFAULT_WIDTH_M))
     slope = float(static.get("slope", DEFAULT_SLOPE))
     manning_n = float(static.get("manning_n", DEFAULT_MANNING_N))
-    if area_km2 <= 0.0 or width_m <= 0.0 or slope <= 0.0 or dt <= 0.0:
-        return 0.0
-    # The reach's own drain is already a rate; the groundwater store contributes
-    # at the rate it releases over the step it was reported for.
-    gw_mm_per_day = max(gw_mm, 0.0) / dt
-    q_m3s = (max(mrro_mm_per_day, 0.0) + gw_mm_per_day) * 1e-3 * area_km2 * 1e6 / SECONDS_PER_DAY
-    if q_m3s <= 0.0:
+    if q_m3s <= 0.0 or width_m <= 0.0 or slope <= 0.0:
         return 0.0
     return (q_m3s * manning_n / (width_m * slope ** 0.5)) ** 0.6
 
@@ -233,18 +237,13 @@ def simulate(forcing: list[dict], static: dict, dt: float) -> list[dict]:
         cum_gen += g
         cum_out += row["mrro"] * dt
         row["channel"] += cum_gen - cum_out
-        # The discharge the gauge reads is the reach's own outflow plus the
-        # baseflow still arriving: the same flow `stage_of` is handed, reported
-        # in m3/s so `momentum/stage-discharge-monotonic` can score the rating
-        # against discharge rather than against the store.
-        row["dis"] = (
-            (row["mrro"] + max(row["gw"], 0.0) / dt)
-            * 1e-3
-            * static["area_km2"]
-            * 1e6
-            / SECONDS_PER_DAY
-        )
-        row["stage"] = stage_of(row["mrro"], row["gw"], static, dt)
+        # The discharge the gauge reads is the reach's own outflow — the whole
+        # of what it is carrying, since the slow reservoir's drainage is
+        # already inside `mrro` — reported in m3/s so
+        # `momentum/stage-discharge-monotonic` can score the rating against
+        # discharge rather than against the store.
+        row["dis"] = discharge_m3s(row["mrro"], static)
+        row["stage"] = manning_depth(row["dis"], static)
     return rows
 
 

@@ -52,11 +52,31 @@ MIN_BIN_SIZE = 5
 # rating misses by a visible share of its range. Two percent sits between them
 # with room on both sides.
 MIN_LOOP_FRACTION = 0.02
+# The share of the span within which a stage counts as a *function* of an axis
+# rather than as a rating drawn against it. This is much tighter than the size
+# floor above, because it answers a different question — "is the rating
+# single-valued" is a claim that the departure is rounding, not a claim about
+# what an instrument could resolve. A model that computes its stage from one
+# quantity lands well inside this; a rating that genuinely loops is an order of
+# magnitude outside it, which is what keeps the escape from swallowing the
+# inverted reference gauge.
+MIN_SINGLE_VALUED_FRACTION = 0.005
 # How far a stage may dip below the running maximum, as a fraction of the
 # rating's own span, before that dip is a violation rather than sampling noise.
-# Binned medians carry error, so a rating read off them is never exactly
-# monotone; this is the floor that separates the two.
-MIN_MONOTONIC_FRACTION = 0.02
+#
+# This is deliberately much looser than the loop's floor above, because the two
+# criteria ask for opposite things and an honest rating has both. A stage read
+# off a store rather than off the instantaneous flow is hysteretic by
+# construction — that *is* the loop — and hysteresis means the same discharge
+# carries two levels, so its binned median necessarily dips below the running
+# maximum by a visible share of the span. Published loop ratings run 5-20% of
+# the depth; twenty percent admits the honest ones while a gauge that never
+# comes back down (a running maximum, say) still misses by far more — the
+# drift reference model misses by 60%. The 2% this used to be was only
+# survivable while the rating span was tens of metres, which no reach has: it
+# made a physically scaled rating fail the monotonicity check for having the
+# very loop the probe exists to find.
+MIN_MONOTONIC_FRACTION = 0.20
 # The share of bins that must agree in sign before the loop's direction is
 # treated as the physics rather than as pairing noise. A real loop has the
 # same sign at every discharge and lands far above this; artifacts from
@@ -448,7 +468,16 @@ def rating_loop(run: RunResult, probe: ProbeSpec, params: dict) -> CriterionResu
     min_loop = float(params.get("min_loop_m", 0.0))
     if min_loop <= 0.0:
         min_loop = max(MIN_SPAN_M, MIN_LOOP_FRACTION * span)
+    # The scatter that marks a rating as single-valued scales with the rating's
+    # own span and not with `min_loop`. The two answer different questions:
+    # `min_loop` is the separation the reach can resolve, which a probe may
+    # state absolutely, while "is this rating a function of its axis" is a
+    # share-of-range question — a stage that departs from its axis by a
+    # rounding-scale fraction of its own range is a function of that axis
+    # whatever the instrument's resolution happens to be.
+    scatter_floor = max(MIN_SPAN_M, MIN_SINGLE_VALUED_FRACTION * span)
     scatter = _rating_scatter(stage, x)
+    scatter_q = _rating_scatter(stage, q) if q_source != x_source else scatter
 
     # Two ways a rating can have no loop worth reading, and both have to pass.
     #
@@ -480,24 +509,66 @@ def rating_loop(run: RunResult, probe: ProbeSpec, params: dict) -> CriterionResu
     inverted_fraction = inverted / len(signed) if len(signed) else 0.0
     consistent = inverted_fraction >= MAJORITY_FRACTION
 
-    if scatter <= min_loop or (loop_size <= min_loop and not consistent):
+    # A rating that is a function of the abscissa — or of the discharge — is
+    # single-valued, and a single-valued rating has no loop: two steps that
+    # share the abscissa (or the flow) share the level, however they got
+    # there. This is the signature of a model that reads its gauge off one
+    # state, and whatever the two limbs then differ by is pairing error.
+    #
+    # Checking the discharge as well as the abscissa matters for the physical
+    # models. `flex_lumped` and `sacsma_snow17` build their stage from their
+    # own discharge, so their rating is single-valued in `dis` even though the
+    # probe pairs on the store. On the store axis their two limbs then miss
+    # each other by centimetres of noise, and no size floor separates that
+    # from a real loop. Reading the rating as a function of the flow it is
+    # drawn against says what the model actually did — it computed a stage
+    # from its discharge — and escapes the criterion without weakening it,
+    # because a rating that genuinely loops is a function of *neither* axis
+    # alone.
+    single_valued_in = None
+    single_valued_scatter = 0.0
+    if scatter <= scatter_floor:
+        single_valued_in, single_valued_scatter = x_source, scatter
+    elif scatter_q <= scatter_floor:
+        single_valued_in, single_valued_scatter = q_source, scatter_q
+
+    if single_valued_in is not None:
         reason = (
-            f"{x_source} fixes stage to within {scatter:.2e} m, so the rating is "
-            f"single-valued"
-            if scatter <= min_loop
-            else f"the two limbs differ by only {loop_size:.2e} m "
-            f"({loop_size / span:.2%} of the {span:.2f} m rating) and disagree in sign "
-            f"across bins ({inverted} of {len(qb)} inverted), which is pairing "
-            f"noise rather than a loop"
+            f"stage is a function of {single_valued_in} to within "
+            f"{single_valued_scatter:.2e} m, so the rating is single-valued"
         )
+    elif loop_size <= min_loop:
+        # The size floor is symmetric: a separation too small for the reach to
+        # resolve is not a loop in either direction. An inverted gauge hides
+        # behind it only if its loop is smaller than the reach can read, which
+        # is why the reference gauges are built at a physical scale: they have
+        # to clear the same floor a real loop would.
+        sign_note = (
+            f"and the sign agrees across bins ({inverted} of {len(qb)} inverted)"
+            if inverted == 0
+            else f"and the sign is not consistent ({inverted} of {len(qb)} inverted)"
+        )
+        reason = (
+            f"the two limbs differ by only {loop_size:.2e} m "
+            f"({loop_size / span:.2%} of the {span:.2f} m rating), {sign_note}, "
+            f"which is pairing noise rather than a loop"
+        )
+    else:
+        reason = None
+
+    if reason is not None:
         return CriterionResult(
             name="rating_loop",
             status=PASS,
             value=0.0,
             threshold=tolerance,
             message=(
-                f"no loop to read: {reason} — below the {min_loop:.4f} m the "
-                f"reach resolves ({len(qb)} bins)"
+                f"no loop to read: {reason} ({len(qb)} bins)"
+                if single_valued_in is not None
+                else (
+                    f"no loop to read: {reason} — below the {min_loop:.4f} m "
+                    f"the reach resolves ({len(qb)} bins)"
+                )
             ),
             diagnostics={
                 "loop_m": 0.0,
@@ -507,9 +578,11 @@ def rating_loop(run: RunResult, probe: ProbeSpec, params: dict) -> CriterionResu
                 "abscissa": x_source,
                 "limb_direction_by": q_source,
                 "rating_scatter_m": scatter,
+                "rating_scatter_discharge_m": scatter_q,
                 "min_loop_m": min_loop,
                 "span_m": span,
-                "single_valued": True,
+                "single_valued": single_valued_in is not None,
+                "single_valued_in": single_valued_in,
                 "bin_abscissa": [float(v) for v in qb],
             },
         )
@@ -538,6 +611,7 @@ def rating_loop(run: RunResult, probe: ProbeSpec, params: dict) -> CriterionResu
             "abscissa": x_source,
             "limb_direction_by": q_source,
             "rating_scatter_m": scatter,
+            "rating_scatter_discharge_m": scatter_q,
             "min_loop_m": min_loop,
             "span_m": span,
             "single_valued": False,

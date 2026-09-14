@@ -181,3 +181,52 @@ def test_a_tie_with_equal_stage_still_measures_the_separated_pairs():
 def test_an_exact_function_has_scatter_at_rounding_scale():
     x = np.linspace(0.0, 10.0, 50)
     assert _rating_scatter(2.0 * x + 1.0, x) < 1e-9
+
+
+def test_a_stage_that_is_a_function_of_the_discharge_has_no_loop():
+    """A gauge computed from the flow is single-valued in the flow, whatever
+    the store does.
+
+    The probe pairs the limbs on the store, and a physical model that computes
+    its stage from its own discharge — `flex_lumped`, `sacsma_snow17` — shows
+    centimetres of apparent loop on that axis. It is pairing noise: the store
+    lags the flow, so two steps at one store carry different discharges. The
+    criterion has to read the rating as a function of the discharge it is
+    drawn against, or it fails an honest model on a noise floor no size test
+    can separate from a real loop.
+    """
+    t = np.linspace(0.0, 12 * np.pi, 600)
+    q = 1.0 + 0.5 * np.sin(t)
+    stage = 3.0 * q  # an exact function of the discharge
+    # A store that lags the flow, as a routing store does.
+    store = q * (1.0 + 0.4 * np.sin(0.25 * t + 1.0))
+    result = get("rating_loop")(build(q, stage, channel=store), None,
+                                {"bins": 12, "tolerance": 0.0, "abscissa": "store"})
+    assert result.status == PASS
+    assert result.diagnostics["single_valued"] is True
+    assert result.diagnostics["single_valued_in"] == "dis"
+    assert "single-valued" in result.message
+
+
+def test_a_small_but_consistent_inversion_still_fails():
+    """A loop that is small in absolute terms but inverted on every bin is the
+    physics, not noise.
+
+    The size floor exists to excuse a separation the reach cannot resolve, and
+    the previous escape also excused a loop that was *consistently* on the
+    wrong side but under the floor — which is how `reference_rating_inverted`
+    came to trip nothing. With the floor set below a real instrument's
+    resolution, a consistent inversion has to fail whatever its width.
+    """
+    t = np.linspace(0.0, 12 * np.pi, 600)
+    q = 1.0 + 0.5 * np.sin(t)
+    dq = np.gradient(q)
+    # Inverted and small: a fortieth of the rating's span, not half of it.
+    stage = 2.0 * q + 0.02 * np.where(dq > 0, +1.0, -1.0)
+    store = q * (1.0 + 0.3 * np.sin(0.25 * t))
+    result = get("rating_loop")(build(q, stage, channel=store), None,
+                                {"bins": 12, "tolerance": 0.0, "abscissa": "store",
+                                 "min_loop_m": 1e-4})
+    assert result.status == FAIL
+    assert "wrong way" in result.message
+    assert result.diagnostics["loop_m"] > 0.0

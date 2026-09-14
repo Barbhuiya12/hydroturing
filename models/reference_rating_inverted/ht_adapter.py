@@ -3,17 +3,23 @@
 gauge is wired to the wrong part of the reach.
 
 The routing is the same two-path reach the honest model uses — a fast
-floodplain and a slow channel — and the discharge is identical. The fault is
-which of them the gauge reads: it stands in the fast path instead of the slow
-one.
+floodplain and a slow channel, on the same residence times and the same
+split — and the discharge is identical. The fault is which of them the gauge
+reads: it is solved from the fast path's release instead of the channel's.
 
 That inverts the loop rather than destroying it. The fast path fills and
 empties within the flood, so the gauge peaks *with* the wave instead of after
 it, and at equal water in transit the rise reads above the fall. Stage is
-still a strictly increasing function of the quantity it is drawn from, so the
+still a strictly increasing function of the flow it is solved for, so the
 rating never falls against discharge and the monotonicity check passes
 outright: this model fails only the loop, which is exactly the separation the
 two criteria exist to make.
+
+The gauge is a Manning depth, at the same physical scale the honest model
+uses. That matters for the inversion to be *visible*: a rating tens of metres
+deep puts the size floor above the loop, and the inverted gauge then escapes
+as "no loop to read" instead of failing — which is how an inverted control
+can go missing from the gate.
 """
 
 from __future__ import annotations
@@ -35,8 +41,16 @@ MODEL = {"name": "reference_rating_inverted", "version": "1.0.0"}
 EVAP_SHAPE = 0.5
 SECONDS_PER_DAY = 86400.0
 
-FLOODPLAIN_RESIDENCE_D = 0.35
-CHANNEL_RESIDENCE_D = 4.0
+# The same two-path reach the honest model routes, but the split is an even
+# one rather than a floodplain-dominated one. That matters for the fault to be
+# *visible*: the gauge reads the floodplain, and if the floodplain carried
+# almost all of the discharge the gauge would be nearly a function of the
+# discharge and the inversion would read as a single-valued rating. Half and
+# half keeps the sheet in the gauge well out of step with the flow through the
+# reach.
+FLOODPLAIN_RESIDENCE_D = 8.0
+CHANNEL_RESIDENCE_D = 60.0
+FLOODPLAIN_SHARE = 0.5
 
 TIMESTEP_DAYS = {
     "PT1D": 1.0,
@@ -47,12 +61,36 @@ TIMESTEP_DAYS = {
 }
 
 
-def _stage(store_mm, static):
+def _q_m3s(rate_mm_per_day: float, static: dict) -> float:
+    """A depth rate over the catchment, in m3/s."""
     area_km2 = static["area_km2"]
-    width_m = static.get("width_m", 18.0)
-    reach_m = static.get("reach_length_m", 4500.0)
-    stored_m3 = max(store_mm, 0.0) * 1e-3 * area_km2 * 1e6
-    return float(stored_m3 / (width_m * reach_m))
+    return max(rate_mm_per_day, 0.0) * 1e-3 * area_km2 * 1e6 / SECONDS_PER_DAY
+
+
+def manning_depth(q_m3s: float, static: dict) -> float:
+    """The depth a steady flow makes in the reach's cross-section, in metres.
+
+        h = ( Q * n / (w * sqrt(S)) )^(3/5)
+
+    Same relation and same section the honest model's gauge uses, solved for a
+    different flow. The honest gauge solves it for the channel's release; this
+    one solves it for the floodplain's, so it rises with the wave instead of
+    lagging it and the rating loops the wrong way.
+
+    A cross-section rather than a sheet is deliberate. The gauge has to be a
+    *physical* instrument at the reach's own scale — an earlier version spread
+    the floodplain's storage over a bed, which made a rating metres deep and
+    let the inversion hide below the size floor — but it also has to keep a
+    stable span across seeds, and a normal-depth rating is set by the flow
+    range, which does not swing the way a storage-based one does.
+    """
+    width_m = float(static.get("width_m", 18.0))
+    slope = float(static.get("slope", 0.0015))
+    manning_n = float(static.get("manning_n", 0.035))
+    q = max(float(q_m3s), 0.0)
+    if q <= 0.0 or width_m <= 0.0 or slope <= 0.0:
+        return 0.0
+    return float((q * manning_n / (width_m * slope ** 0.5)) ** 0.6)
 
 
 def simulate(forcing, static, dt_days=1.0):
@@ -103,7 +141,7 @@ def simulate(forcing, static, dt_days=1.0):
         soil -= soil_evap
 
         yield_mm = surface + baseflow
-        to_fast = 0.7 * yield_mm
+        to_fast = FLOODPLAIN_SHARE * yield_mm
         to_slow = yield_mm - to_fast
         fast += to_fast
         slow += to_slow
@@ -115,8 +153,9 @@ def simulate(forcing, static, dt_days=1.0):
 
         q_total = q_fast + q_slow
         dis_m3s = q_total / dt_days * 1e-3 * area_km2 * 1e6 / SECONDS_PER_DAY
-        # The fault: the gauge stands in the fast path.
-        stage = _stage(fast + q_fast, static)
+        # The fault: the gauge is solved from the floodplain's release, so it
+        # peaks with the wave instead of lagging it.
+        stage = manning_depth(_q_m3s(q_fast / dt_days, static), static)
 
         rows.append({
             "time": step["time"],

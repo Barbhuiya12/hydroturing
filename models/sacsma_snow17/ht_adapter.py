@@ -77,38 +77,48 @@ def surface_pressure_hpa(elev_m: float) -> float:
     return 33.86 * (29.9 - 0.335 * e + 0.00022 * e ** 2.4)
 
 
-def stage_of(mrro_mm_per_day: float, lower_mm: float, static: dict, dt_days: float) -> float:
-    """The level a gauge in the reach would read, in metres.
+def discharge_m3s(runoff_mm_per_day: float, static: dict) -> float:
+    """The reach's discharge, in m3/s, from the runoff over the catchment.
+
+    `mrro` is what the unit hydrograph has released, and it already carries
+    every path out of the model — the surface runoff, the interflow and the
+    baseflow the lower zones drain — so it is the whole of what the reach is
+    carrying and nothing needs adding to it.
+    """
+    area_km2 = float(static.get("area_km2", 0.0))
+    return max(runoff_mm_per_day, 0.0) * 1e-3 * area_km2 * 1e6 / SECONDS_PER_DAY
+
+
+def manning_depth(q_m3s: float, static: dict) -> float:
+    """The depth a steady flow makes in the reach's cross-section, in metres.
 
     A diagnostic rather than a store, reported so that
     `momentum/stage-discharge-monotonic` has a gauge to read, and never
     differenced into any budget. A stage is a length read off a staff gauge
-    in a cross-section, so it is built from the flow the reach is carrying
-    rather than from a catchment depth, and Manning's normal depth is the
-    bridge between the two:
+    in a cross-section, and the length is set by the flow through it, so
+    Manning's normal depth is the bridge between the two:
 
         h = ( Q * n / (w * sqrt(S)) )^(3/5)
 
-    The flow is what both of the model's lower reservoirs are draining:
-    `mrro` is what the unit hydrograph has released, and the lower zone is
-    draining over months behind it. They have different time constants and
-    the gauge sees both, which is what lets the level on the rising limb sit
-    below the level the same flow makes once the lower zone has drained.
+    The flow is the model's own discharge and nothing else. An earlier version
+    added the lower-zone store divided by the step, which was wrong twice
+    over. That store's drainage is already inside `mrro` — SAC-SMA's `tci`
+    includes the baseflow the lower zones release — so the term counted the
+    same water twice; and dividing the store rather than its release made the
+    gauge read the whole reservoir instead of the water leaving it, which at a
+    daily step was forty-eight times the real flow and grew further as the
+    step shrank. The effect was not subtle: the gauge then correlated +1.00
+    with the seasonal lower-zone store, so the rating it drew was the annual
+    groundwater cycle rather than anything the reach did.
 
-    Both terms are flow *rates*, in mm/day: a stage is a reading a gauge would
-    give at an instant, so it cannot depend on how often the model writes a
-    row. An earlier version divided the stores — depths — by `dt`, which made
-    the same reach read 78x deeper at PT1M than at PT1D.
+    The depth is a function of the discharge at the same step, so this gauge
+    reports a single-valued rating: the model has one state carrying the storm
+    and the gauge reads it directly.
     """
-    area_km2 = float(static.get("area_km2", 0.0))
     width_m = float(static.get("width_m", DEFAULT_WIDTH_M))
     slope = float(static.get("slope", DEFAULT_SLOPE))
     manning_n = float(static.get("manning_n", DEFAULT_MANNING_N))
-    if area_km2 <= 0.0 or width_m <= 0.0 or slope <= 0.0 or dt_days <= 0.0:
-        return 0.0
-    lower_mm_per_day = max(lower_mm, 0.0) / dt_days
-    q_m3s = (max(mrro_mm_per_day, 0.0) + lower_mm_per_day) * 1e-3 * area_km2 * 1e6 / SECONDS_PER_DAY
-    if q_m3s <= 0.0:
+    if q_m3s <= 0.0 or width_m <= 0.0 or slope <= 0.0:
         return 0.0
     return (q_m3s * manning_n / (width_m * slope ** 0.5)) ** 0.6
 
@@ -197,18 +207,13 @@ def simulate(forcing: list[dict], static: dict, timestep: str) -> tuple[list[dic
         cum_in += g
         cum_out += row["mrro"] * dt_days
         row["channel"] = cum_in - cum_out
-        # The discharge the gauge reads is what the hydrograph has released
-        # plus the lower zone still draining, in m3/s, so
+        # The discharge the gauge reads is what the hydrograph has released —
+        # every path out of the model is inside `mrro`, the baseflow the lower
+        # zones drain included — in m3/s, so
         # `momentum/stage-discharge-monotonic` can score the rating against
         # discharge rather than against the store.
-        row["dis"] = (
-            (row["mrro"] + max(row["gw"], 0.0) / dt_days)
-            * 1e-3
-            * static["area_km2"]
-            * 1e6
-            / SECONDS_PER_DAY
-        )
-        row["stage"] = stage_of(row["mrro"], row["gw"], static, dt_days)
+        row["dis"] = discharge_m3s(row["mrro"], static)
+        row["stage"] = manning_depth(row["dis"], static)
     notes = {
         "port": "sacsma_snow17.py, checked against the f2py build of the Fortran",
         "parameters": {"sac": sac, "snow17": snow, "unit_hydrograph": UH},

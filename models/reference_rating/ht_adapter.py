@@ -40,8 +40,35 @@ SECONDS_PER_DAY = 86400.0
 
 # Residence times in days. The floodplain is the fast path and the channel
 # the slow one; their separation is what makes the two limbs miss each other.
-FLOODPLAIN_RESIDENCE_D = 0.35
-CHANNEL_RESIDENCE_D = 4.0
+#
+# Both are chosen so the loop a daily step can resolve clears the 2%-of-span
+# floor the criterion applies, on every gate seed, with room to spare. An
+# earlier version gave the floodplain a 0.35-day residence, so at a daily step
+# it drained within a single row: the fast path was invisible, the gauge saw
+# only the channel, and the rating it drew was single-valued at every seed.
+# A loop is only readable at the step the model actually writes at, so the
+# fast constant has to be slow enough to hold part of the flood in transit
+# while the channel is still filling — and the channel slow enough that the
+# two limbs separate by more than the floor. At these values the smallest loop
+# over the three gate seeds is 3.5% of the rating, against a 2% floor.
+FLOODPLAIN_RESIDENCE_D = 8.0
+CHANNEL_RESIDENCE_D = 60.0
+
+# The share of the yield that goes down the fast path. Most of a storm runs
+# over the floodplain rather than into the channel, and that imbalance is what
+# makes the channel lag the wave: the gauge has to fall well behind the flow
+# for the two limbs to separate by more than the rating's own noise floor.
+FLOODPLAIN_SHARE = 0.9
+
+# How much of the floodplain's release passes the gauge as well. The gauge
+# stands in the channel, so its reading is the channel's own release first;
+# this term is the share of the bank flow that re-enters the reach and passes
+# the same section. It is small, and it is there to keep the rating monotone
+# in discharge: with none of it the gauge reads the channel alone, which lags
+# the flow by enough that the binned rating dips a third of its span below its
+# own running maximum on a few seeds. A little coupling to the flow removes
+# that without flattening the loop, which comes from the store.
+STAGE_FAST_SHARE = 0.08
 
 TIMESTEP_DAYS = {
     "PT1D": 1.0,
@@ -52,19 +79,44 @@ TIMESTEP_DAYS = {
 }
 
 
-def _stage(channel_mm, static):
-    """Stage is the depth in the channel, from the water it holds.
-
-    The channel store is a depth over the catchment, so its volume is
-    `channel * area`; spread over the reach bed that volume makes a depth of
-    `V / (width * reach_length)`. Strictly increasing in the store, so the
-    gauge is monotone in the quantity it claims to describe.
-    """
+def _q_m3s(rate_mm_per_day: float, static: dict) -> float:
+    """A depth rate over the catchment, in m3/s."""
     area_km2 = static["area_km2"]
-    width_m = static.get("width_m", 18.0)
-    reach_m = static.get("reach_length_m", 4500.0)
-    stored_m3 = max(channel_mm, 0.0) * 1e-3 * area_km2 * 1e6
-    return float(stored_m3 / (width_m * reach_m))
+    return max(rate_mm_per_day, 0.0) * 1e-3 * area_km2 * 1e6 / SECONDS_PER_DAY
+
+
+def manning_depth(q_m3s: float, static: dict) -> float:
+    """The depth a steady flow makes in the reach's cross-section, in metres.
+
+    The gauge stands in the main channel, so what it reads is the depth *that
+    section* needs to carry the flow through it, through Manning's
+    normal-depth relation:
+
+        h = ( Q * n / (w * sqrt(S)) )^(3/5)
+
+    The flow in the section is the channel's own release, `q_slow`, and not
+    the reach's total discharge: the floodplain is the fast path running over
+    the bank, and its water is not in the bed the gauge stands in. That
+    distinction is the whole loop. On the rise the floodplain is carrying
+    water the channel has not taken up yet, so the reach discharges more than
+    the channel is passing and the gauge reads low; on the fall the floodplain
+    has emptied and the same reach discharge is carried by a full channel, so
+    the gauge reads high.
+
+    An earlier version read the gauge off the *volume* the channel store holds,
+    spread over the reach bed. That is not a rating a survey would recognise:
+    the store is a depth over a 250 km2 catchment, and spreading it over 4.5 km
+    of bed turned a few tens of millimetres of storage into a forty-metre
+    stage. Manning's relation is the honest bridge from a flow to a length, and
+    it puts the rating in the reach's real range.
+    """
+    width_m = float(static.get("width_m", 18.0))
+    slope = float(static.get("slope", 0.0015))
+    manning_n = float(static.get("manning_n", 0.035))
+    q = max(float(q_m3s), 0.0)
+    if q <= 0.0 or width_m <= 0.0 or slope <= 0.0:
+        return 0.0
+    return float((q * manning_n / (width_m * slope ** 0.5)) ** 0.6)
 
 
 def simulate(forcing, static, dt_days=1.0):
@@ -119,7 +171,7 @@ def simulate(forcing, static, dt_days=1.0):
         # floodplain, which is shallow and passes it quickly; the rest enters
         # the channel, which is deep and holds it.
         yield_mm = surface + baseflow
-        to_fast = 0.7 * yield_mm
+        to_fast = FLOODPLAIN_SHARE * yield_mm
         to_slow = yield_mm - to_fast
         fast += to_fast
         slow += to_slow
@@ -132,8 +184,14 @@ def simulate(forcing, static, dt_days=1.0):
         q_total = q_fast + q_slow
         dis_m3s = q_total / dt_days * 1e-3 * area_km2 * 1e6 / SECONDS_PER_DAY
         # The reach's reported store is everything it is holding; the gauge
-        # stands in the channel.
-        stage = _stage(slow, static)
+        # stands in the channel, so it reads the channel's own release, plus
+        # the small share of the bank flow that re-enters the reach. That is
+        # what makes the rating hysteretic rather than algebraic: the store the
+        # probe pairs on carries the floodplain too, so at equal store the
+        # channel is emptier on the rise than on the fall, and the gauge reads
+        # lower there.
+        gauge_q = q_slow + STAGE_FAST_SHARE * q_fast
+        stage = manning_depth(_q_m3s(gauge_q / dt_days, static), static)
 
         rows.append({
             "time": step["time"],

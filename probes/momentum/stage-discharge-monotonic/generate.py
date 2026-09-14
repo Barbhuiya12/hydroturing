@@ -7,8 +7,8 @@ across the full range of flow from baseflow to peak.
 The floods are built from ordinary rainfall: a multi-day wet spell that fills
 the catchment, then a dry spell that lets the channel drain. That is the
 shape a real hydrograph has and the shape `rating_loop` needs — a rising limb
-long enough to bin, and a falling limb longer still, so the two can be
-compared at matching discharge.
+long enough to bin, and a falling limb longer still, so the two can be paired
+at a shared store value.
 """
 
 from __future__ import annotations
