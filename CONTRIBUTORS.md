@@ -15,6 +15,7 @@ long.
 
 | Probe | Authors |
 | --- | --- |
+| `mass/ungauged-basin-closure` | Shunan Zhou (Dalian University of Technology, Dalian, China) |
 | `mass/catchment-closure` | Zhi Li (CU Boulder) |
 | `mass/resolution-invariance` | Zhi Li (CU Boulder) |
 | `mass/warming-response` | Zhi Li (CU Boulder) |
