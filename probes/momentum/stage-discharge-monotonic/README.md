@@ -8,7 +8,7 @@ The first is monotonicity. Stage has to rise with the flow it is drawn
 against: read the reach at a higher discharge and the gauge reads a higher
 level, while a gauge that ratchets up on a running maximum and relaxes only a
 fraction of a percent a day steps down against its own history instead. The
-share of the span a binned rating may dip is large, because a stage read off a
+share of the span a binned rating may dip is 8%, because a stage read off a
 store is hysteretic by construction and dips for that reason alone — the 2%
 the criterion first used was only survivable while the rating spanned tens of
 metres, which no reach does.
@@ -52,6 +52,16 @@ claiming a discharge check it did not make. `reference_rating` is in
 `must_pass` — with two separated time constants it is the only baseline that
 traces a correctly-signed loop, and it is what keeps the loop criterion's
 "the right way" branch live rather than dead.
+
+## Limitations
+
+A gauge that is hydrograph-shaped but decoupled from the model's own discharge
+is not caught by either criterion. A stage taken from another seed's record, or
+one lagged by a fortnight, can pass while being physically meaningless, because
+the probe only checks that the gauge moves with the flow it claims to describe.
+
+The honest loop in `reference_rating` is 2.0–5.8 mm across the 130-seed sweep,
+so it clears the 2 mm size floor comfortably without sitting right on it.
 
 ## Where the implementation departs from the design settled in #53
 

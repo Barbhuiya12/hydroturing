@@ -2,10 +2,11 @@
 """HydroTuring adapter for reference_rating_inverted: the routed bucket whose
 gauge is wired to the wrong part of the reach.
 
-The routing is the same two-path reach the honest model uses — a fast
-floodplain and a slow channel, on the same residence times and the same
-split — and the discharge is identical. The fault is which of them the gauge
-reads: it is solved from the fast path's release instead of the channel's.
+The routing uses the same two-path reach the honest model uses — a fast
+floodplain and a slow channel on the same residence times — but the split is
+0.5/0.5 instead of the honest model's 0.9/0.1, so the discharge is not
+identical. The fault is which of them the gauge reads: it is solved from the
+fast path's release instead of the channel's.
 
 That inverts the loop rather than destroying it. The fast path fills and
 empties within the flood, so the gauge peaks *with* the wave instead of after

@@ -70,13 +70,13 @@ MIN_SINGLE_VALUED_FRACTION = 0.005
 # construction — that *is* the loop — and hysteresis means the same discharge
 # carries two levels, so its binned median necessarily dips below the running
 # maximum by a visible share of the span. Published loop ratings run 5-20% of
-# the depth; twenty percent admits the honest ones while a gauge that never
+# the depth; eight percent admits the honest ones while a gauge that never
 # comes back down (a running maximum, say) still misses by far more — the
-# drift reference model misses by 60%. The 2% this used to be was only
+# drift reference model misses by roughly 60%. The 2% this used to be was only
 # survivable while the rating span was tens of metres, which no reach has: it
 # made a physically scaled rating fail the monotonicity check for having the
 # very loop the probe exists to find.
-MIN_MONOTONIC_FRACTION = 0.20
+MIN_MONOTONIC_FRACTION = 0.08
 # The share of bins that must agree in sign before the loop's direction is
 # treated as the physics rather than as pairing noise. A real loop has the
 # same sign at every discharge and lands far above this; artifacts from
