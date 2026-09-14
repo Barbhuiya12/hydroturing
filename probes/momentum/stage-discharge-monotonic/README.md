@@ -60,8 +60,9 @@ is not caught by either criterion. A stage taken from another seed's record, or
 one lagged by a fortnight, can pass while being physically meaningless, because
 the probe only checks that the gauge moves with the flow it claims to describe.
 
-The honest loop in `reference_rating` is 2.0–5.8 mm across the 130-seed sweep,
-so it clears the 2 mm size floor comfortably without sitting right on it.
+Where `reference_rating`'s loop clears the 2 mm size floor (90 of 130 seeds in
+the sweep) it measures 2.0–5.8 mm, so it sits just above the floor; on the
+other 40 seeds it takes the size escape, which passes either way.
 
 ## Where the implementation departs from the design settled in #53
 
