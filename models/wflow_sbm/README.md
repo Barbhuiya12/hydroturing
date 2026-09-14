@@ -267,6 +267,8 @@ case on the full record (`window_days: full`).
 
 | Probe | Verdict | Reason | Detail |
 | --- | --- | --- | --- |
+| `mass/ungauged-basin-closure` | PASS | OK | All 12 fixed seeds pass; soil storage is nonzero, while reported day-end canopy storage is zero (see the [storage coverage table](../../probes/mass/ungauged-basin-closure/README.md#storage-bound-coverage)) |
+| `energy/soil-heat-storage-consistency` | N/A | INCOMPLETE | does not report the required layer heat-storage diagnostics |
 | `energy/evaporative-partition` | N/A | INCOMPLETE | does not report `hfls`, `hfss`, `hfg` |
 | `energy/latent-heat-et-consistency` | N/A | INCOMPLETE | does not report `hfls`, `hfss`, `hfg` |
 | `energy/pet-consistency` | PASS | OK | evaporation 0.96 of demand when the soil is wettest, 0.15 when driest |
@@ -290,7 +292,7 @@ case on the full record (`window_days: full`).
 | `mass/warming-response` | PASS | OK | runoff falls by 0.27 to 0.31 per unit of added demand |
 | `momentum/routing-conservation` | PASS | OK | the channel holds at most 0.17 of what a 15-day hydrograph of recent runoff allows |
 
-The four energy probes that need an energy output are N/A (INCOMPLETE) because wflow_sbm
+The five energy probes that need an energy output are N/A (INCOMPLETE) because wflow_sbm
 computes no latent, sensible or ground heat flux and no surface temperature; that is the
 model declining to be asked, not a failure.
 
@@ -466,8 +468,3 @@ Putting the saturated store in `mrso` moves no result: `mrso` stays inside its b
 closure seed. The dry-down and runoff bounds would add an initial `gw` to the capacity if one
 were reported. None is, so they are held to the stated capacities, and they pass or fail here
 for reasons that do not involve it.
-
-### Ungauged attribute-domain evaluation
-
-`mass/ungauged-basin-closure` passes on all 12 fixed seeds. The archive now contains 16 PASS out of 19 scored probes, with 5 N/A. The prescribed state bounds are evaluated against the native outputs; this is not a test of capacity consumption. See the [probe coverage table](../../probes/mass/ungauged-basin-closure/README.md#storage-bound-coverage).
-The archive also includes `energy/soil-heat-storage-consistency` as N/A (INCOMPLETE); its required heat-storage diagnostics are not reported.

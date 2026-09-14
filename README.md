@@ -83,7 +83,7 @@ unclaimed.
 
 | Probe | Law | What it asks | The broken model it catches |
 | --- | --- | --- | --- |
-| [`mass/ungauged-basin-closure`](probes/mass/ungauged-basin-closure) | mass | Does the full budget close for independently sampled soil/canopy capacities? | `reference_spatial_loss`, `reference_spatial_gain`, `reference_spatial_capacity` and four further fixtures |
+| [`mass/ungauged-basin-closure`](probes/mass/ungauged-basin-closure) | mass | Does the full budget close for independently sampled soil/canopy capacities? | `reference_spatial_loss`, `reference_spatial_gain`, `reference_spatial_capacity`, four further attribute-dependent fixtures, `reference_cheater` and `reference_degenerate` |
 | [`mass/catchment-closure`](probes/mass/catchment-closure) | mass | Does the water budget close over ten generated years? | `reference_leaky`, `reference_cheater`, `reference_degenerate` |
 | [`mass/resolution-invariance`](probes/mass/resolution-invariance) | mass | The same month at the minute, the hour and the day: do the integrated volumes agree? | `reference_fixed_step`, `reference_degenerate` |
 | [`mass/warming-response`](probes/mass/warming-response) | mass | The same rain with the air 3 °C warmer and 3 °C cooler: does runoff move the way physics says, in both directions? | `reference_degenerate`, `reference_streamflow_only` |

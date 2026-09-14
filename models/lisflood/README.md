@@ -603,7 +603,3 @@ model's own at its reference routing sub-step. The archived cases need about
 ht verify-adapter --model lisflood
 ht run --model lisflood --gate-seeds --markdown
 ```
-
-### Ungauged attribute-domain evaluation
-
-`mass/ungauged-basin-closure` passes on all 12 fixed seeds. The archive now contains 16 PASS out of 19 scored probes, with 5 N/A. The prescribed state bounds are evaluated against the native outputs; this is not a test of capacity consumption. See the [probe coverage table](../../probes/mass/ungauged-basin-closure/README.md#storage-bound-coverage).

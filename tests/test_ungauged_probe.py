@@ -112,6 +112,34 @@ def test_capacity_blind_control_uses_native_fixed_capacities(probe):
             assert scores["state_bounds"].passed
 
 
+@pytest.mark.parametrize("state,capacity,seeds", [
+    ("mrso", "soil_capacity_mm", [s for s in range(40) if s % 8 in (2, 6)]),
+    ("canopy", "canopy_capacity_mm", [4, 20, 28]),
+])
+def test_capacity_control_detects_each_configured_storage_bound(probe, state, capacity, seeds):
+    from hydroturing.criteria.bounds import state_bounds
+    module = load(REPO_ROOT / "models/_spatial_faults/ht_adapter.py")
+    configured = next(c.params for c in probe.criteria if c.name == "state_bounds")
+    # Read the actual probe configuration: removing either bound must fail this test.
+    assert configured.get(state) == [0, capacity]
+    params = {state: configured[state]}
+    for seed in seeds:
+        case = build_case(probe, seed)
+        records = case.forcing.to_dict("records")
+        for fault, should_pass in [(False, True), (True, False)]:
+            rows = (module.simulate(records, case.static, fault="capacity") if fault
+                    else module.bucket.simulate(records, case.static))
+            run = RunResult(case, pd.DataFrame(rows), {}, 0)
+            assert state_bounds(run, probe, params).passed == should_pass, (state, seed)
+    if state == "canopy":
+        # Daily evaporation empties the fixed canopy in these cases.
+        for seed in [12, 36, 1946872492]:
+            case = build_case(probe, seed)
+            rows = module.simulate(case.forcing.to_dict("records"), case.static, fault="capacity")
+            run = RunResult(case, pd.DataFrame(rows), {}, 0)
+            assert state_bounds(run, probe, params).passed, seed
+
+
 def test_fitted_models_are_not_excluded_by_capacity_consumption(probe):
     from hydroturing.harness import compatibility_issues
     from hydroturing.registry import find_model
