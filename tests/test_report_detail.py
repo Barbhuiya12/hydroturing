@@ -52,12 +52,16 @@ HEADLINES = {
     "mass/runoff-bounds": ("runoff_bounds",),
     "mass/steady-state": ("steady_state",),
     "mass/time-origin-invariance": ("invariance",),
+    "mass/ungauged-basin-closure": (
+        "closure", "state_bounds", "et_plausible", "non_degenerate", "forcing_fidelity",
+    ),
     "mass/warming-response": ("response_sign",),
     "momentum/routing-conservation": ("routing_conservation",),
     "momentum/routing-lag-consistency": (
         "lag_time_bounds",
         "scaling_monotonicity",
     ),
+    "momentum/stage-discharge-monotonic": ("rating_monotonic", "rating_loop", "non_degenerate"),
 }
 
 

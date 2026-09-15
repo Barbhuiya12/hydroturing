@@ -15,6 +15,7 @@ long.
 
 | Probe | Authors |
 | --- | --- |
+| `mass/ungauged-basin-closure` | Shunan Zhou (Dalian University of Technology, Dalian, China) |
 | `mass/catchment-closure` | Zhi Li (CU Boulder) |
 | `mass/resolution-invariance` | Zhi Li (CU Boulder) |
 | `mass/warming-response` | Zhi Li (CU Boulder) |
@@ -39,6 +40,7 @@ long.
 | `energy/soil-heat-storage-consistency` | Han Wang (The Hong Kong University of Science and Technology) |
 | `momentum/routing-conservation` | Zhi Li (CU Boulder) |
 | `momentum/routing-lag-consistency` | Binlan Zhang (Institute of Mountain Hazards and Environment, Chinese Academy of Sciences, Chengdu, China) |
+| `momentum/stage-discharge-monotonic` | Yuanhang Liu (Independent Researcher) |
 
 ## Models
 

@@ -21,6 +21,7 @@ from hydroturing.criteria import (  # noqa: F401,E402
     human,
     limits,
     radiation,
+    rating,
     regime,
     response,
     routing_lag,

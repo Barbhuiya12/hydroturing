@@ -31,7 +31,7 @@ FLUX_VARS = ("pr", "evspsbl", "mrro", "dis", "gwex", "sbl", "hfls", "hfss", "hfg
 STATE_VARS = ("mrso", "snw", "canopy", "gw", "channel")
 # Keep diagnostics out of STATE_VARS: closure sums every reported store,
 # and temperature must never be added to water storage.
-DIAG_VARS = ("ts", "tsoil_layer")
+DIAG_VARS = ("ts", "tsoil_layer", "stage")
 
 UNITS = {
     "pr": "mm day-1",
@@ -51,6 +51,7 @@ UNITS = {
     "ts": "K",
     "hfg_bottom": "W m-2",
     "tsoil_layer": "K",
+    "stage": "m",
     "mrso": "mm",
     "snw": "mm",
     "canopy": "mm",
@@ -81,6 +82,13 @@ FULL_WINDOW = "full"
 # These repository-owned baselines are the only code allowed to bypass the
 # container boundary. A submitted manifest cannot opt itself into host access.
 TRUSTED_SUBPROCESS_MODELS = {
+    "reference_spatial_capacity",
+    "reference_spatial_et",
+    "reference_spatial_forcing",
+    "reference_spatial_frozen",
+    "reference_spatial_gain",
+    "reference_spatial_loss",
+    "reference_spatial_negative",
     "reference_bucket",
     "reference_coupled",
     "reference_diurnal_bias",
@@ -121,6 +129,11 @@ TRUSTED_SUBPROCESS_MODELS = {
     "reference_snyder_router",
     "reference_instant_router",
     "reference_inverse_router",
+    # Rating probes' own baselines: the momentum gauge suite runs in-process.
+    "reference_rating",
+    "reference_rating_drift",
+    "reference_rating_inverted",
+    "reference_flat_stage",
 }
 
 

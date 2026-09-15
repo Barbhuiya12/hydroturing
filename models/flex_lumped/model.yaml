@@ -20,10 +20,16 @@ runner: subprocess
 entrypoint: ["python3", "ht_adapter.py"]
 timestep: [PT1D, PT1H, PT15M, PT5M, PT1M]
 emits:
-  fluxes: [pr, evspsbl, mrro, gwex]
+  fluxes: [pr, evspsbl, mrro, dis, gwex]
   states: [mrso, snw, canopy, gw, channel]
+  diagnostics: [stage]
 needs_forcing: [pr, tas, pet]
-uses_static: [area_km2, main_channel_length_km, centroid_channel_length_km]
+uses_static:
+  - soil_capacity_mm
+  - canopy_capacity_mm
+  - area_km2
+  - main_channel_length_km
+  - centroid_channel_length_km
 supports:
   perturbation: true
 resources: {cpu: 1, memory_gb: 1, gpu: false}
