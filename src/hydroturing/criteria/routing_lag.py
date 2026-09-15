@@ -418,6 +418,9 @@ def lag_time_bounds(
     except _ResponseFailure as exc:
         return _response_fail("lag_time_bounds", exc)
 
+    # The rain centroid is a float quotient, so a lag of a whole number of steps
+    # can carry about 1e-13 h of rounding; that must not decide a bound.
+    timing_atol_hours = 1e-6
     failures: list[str] = []
     worst_deviation = 0.0
     diagnostics: dict[str, Any] = {}
@@ -425,9 +428,9 @@ def lag_time_bounds(
         low = max(0.0, lower_ratio * measured.expected_hours - tolerance_hours)
         high = upper_ratio * measured.expected_hours + tolerance_hours
         observed = measured.observed_hours
-        if observed < low:
+        if observed < low - timing_atol_hours:
             deviation = (low - observed) / measured.expected_hours
-        elif observed > high:
+        elif observed > high + timing_atol_hours:
             deviation = (observed - high) / measured.expected_hours
         else:
             deviation = 0.0

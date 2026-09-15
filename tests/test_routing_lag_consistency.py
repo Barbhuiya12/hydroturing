@@ -233,6 +233,44 @@ def test_flex_lumped_passes_all_registered_gate_seeds(registered_probe):
     assert outcome.verdict == PASS, outcome.reason
 
 
+def test_flex_lumped_passes_a_seed_whose_rain_centroid_rounds_late(registered_probe):
+    # Seed 887452083 puts a 49.939823 mm storm on scored day 21, whose volume
+    # centroid computes as 21.500000000000004. FLEX's small catchment peaks in
+    # the storm row, so its lag measured -8.5e-14 h against a lower bound of 0.
+    outcome = run_probe(
+        registry.find_model("flex_lumped"),
+        registered_probe,
+        [887452083],
+    )
+    assert outcome.verdict == PASS, outcome.reason
+
+
+def test_a_peak_in_the_storm_row_is_not_rejected_by_centroid_rounding():
+    runs = {}
+    for name, run in _runs((0, 1, 2, 3)).items():
+        forcing = run.case.forcing.copy()
+        # This depth makes the one-row centroid 20.500000000000004 days.
+        forcing.loc[EVENT.start, ["pr", "_event_pr"]] = 49.95412
+        case = Case(
+            probe_id=run.case.probe_id,
+            seed=run.case.seed,
+            forcing=forcing,
+            static=run.case.static,
+            spinup_steps=SPINUP_DAYS,
+            timestep="PT1D",
+        )
+        runs[name] = RunResult(case, run.table, run.meta, run.wall_seconds)
+    result = get("lag_time_bounds")(
+        runs,
+        _probe(),
+        {**COMMON, "lower_ratio": 0.5, "upper_ratio": 2.0,
+         "discretization_tolerance_days": 0.5},
+    )
+    small = result.diagnostics["variants"]["small"]
+    assert small["rain_centroid_day"] != 20.5
+    assert result.passed, result.message
+
+
 def test_flex_lumped_maps_complete_geometry_to_its_native_lag(flex_adapter):
     static = {
         "area_km2": AREAS[2],

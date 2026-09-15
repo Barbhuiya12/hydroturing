@@ -219,9 +219,8 @@ baselines:
     reference_degenerate: non_degenerate
 ```
 
-`must_pass` guards against tolerance drift: if a compatible physical model ever
-fails your probe, the probe is wrong until shown otherwise. Four are normally
-required when their declared interfaces can consume the experiment:
+`must_pass` guards against tolerance drift: if a physical model ever fails
+your probe, the probe is wrong until shown otherwise. Four are required:
 the exact bucket, the two hand-written FLEX models from
 chrimerss/HydrologicModels, which conserve water but partition it with the
 nonlinearities a real conceptual model has, and the NWS's SAC-SMA with
@@ -233,12 +232,18 @@ run against these four before anything else. `must_fail` pins which criterion do
 the catching, so a probe cannot appear to work while catching things for the
 wrong reason.
 
-If a verdict rests on a forcing or static input that none of those four models
-declares it consumes, declare that input under `requires` and use an exact
-domain-specific reference as `must_pass`. Archive the existing models as N/A
-(INCOMPATIBLE) and explain the interface limit in the pull request. Do not add
-an input declaration to a model whose adapter does not actually use it merely
-to make the gate run.
+A probe whose verdict rests on a forcing or static input that none of the four
+consumes still needs a physical model in `must_pass`. An exact
+domain-specific reference may sit beside it but cannot replace it: the
+reference is written alongside the criterion and shares its assumptions, so a
+gate that only the reference passes tests the criterion against a copy of
+itself. Extend at least one
+physical model's adapter to use the input, bump the model's version and
+re-archive its rows, as `flex_lumped` maps channel geometry to its triangular
+lag for `momentum/routing-lag-consistency`. Declare the input under `requires`;
+the models that still cannot consume it are archived as N/A (INCOMPATIBLE). Do
+not add an input declaration to a model whose adapter does not actually use it
+merely to make the gate run.
 
 On a probe with one case per seed, `must_fail` also decides what the report
 says when a model passes: the `detail` column of `models/result.csv` names
