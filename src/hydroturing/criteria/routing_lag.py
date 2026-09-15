@@ -302,7 +302,7 @@ def _measure_one(
             {"variant": variant, "nonfinite_count": bad},
         )
 
-    baseline_days = _positive_param(params, "baseline_days", 30.0)
+    baseline_days = _positive_param(params, "baseline_days", 5.0)
     baseline_steps = max(1, int(np.ceil(baseline_days / window.dt_days)))
     baseline_start = max(0, first - baseline_steps)
     baseline_values = runoff[baseline_start:first]
@@ -495,9 +495,7 @@ def scaling_monotonicity(
             _measure_all(runs, probe, params), key=lambda measured: measured.area_km2
         )
     except _ResponseFailure as exc:
-        return _response_fail(
-            "scaling_monotonicity", exc, threshold=min_span_days
-        )
+        return _response_fail("scaling_monotonicity", exc, threshold=0.0)
 
     for left, right in zip(measurements, measurements[1:]):
         if right.expected_hours <= left.expected_hours:
@@ -507,12 +505,15 @@ def scaling_monotonicity(
             )
 
     increments: dict[str, float] = {}
+    reversal_excesses: list[float] = []
     failures: list[str] = []
     for left, right in zip(measurements, measurements[1:]):
         increase = (right.observed_hours - left.observed_hours) / 24.0
         key = f"{left.variant}->{right.variant}"
         increments[key] = float(increase)
-        if increase + reversal_tolerance_days < -1e-12:
+        reversal_excess = max(0.0, -increase - reversal_tolerance_days)
+        reversal_excesses.append(reversal_excess)
+        if reversal_excess > 1e-12:
             failures.append(
                 f"lag decreases by {-increase:.2f} d from {left.variant} to "
                 f"{right.variant} (allowed sampling reversal "
@@ -523,18 +524,23 @@ def scaling_monotonicity(
     span_days = (
         measurements[-1].observed_hours - measurements[0].observed_hours
     ) / 24.0
-    if span_days + 1e-12 < min_span_days:
+    span_shortfall_days = max(0.0, min_span_days - span_days)
+    if span_shortfall_days > 1e-12:
         failures.append(
             f"lag span from {measurements[0].variant} to "
             f"{measurements[-1].variant} is {span_days:.2f} d "
             f"(minimum {min_span_days:g} d)"
         )
     ok = not failures
+    violation_days = max(
+        span_shortfall_days,
+        max(reversal_excesses, default=0.0),
+    )
     return CriterionResult(
         name="scaling_monotonicity",
         status=PASS if ok else FAIL,
-        value=span_days,
-        threshold=min_span_days,
+        value=violation_days,
+        threshold=0.0,
         message=(
             "rainfall-runoff lag is non-decreasing with catchment area "
             f"(full span {span_days:.2f} d)"
@@ -545,6 +551,10 @@ def scaling_monotonicity(
             "reversal_tolerance_days": reversal_tolerance_days,
             "min_span_days": min_span_days,
             "span_days": span_days,
+            "span_shortfall_days": span_shortfall_days,
+            "maximum_reversal_excess_days": max(
+                reversal_excesses, default=0.0
+            ),
             "minimum_adjacent_increment_days": minimum,
             "increments_days": increments,
             "ordered_variants": [m.variant for m in measurements],

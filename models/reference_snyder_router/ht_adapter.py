@@ -2,9 +2,10 @@
 """Snyder-Hack positive reference for momentum/routing-lag-consistency.
 
 A fixed share of gross rainfall becomes effective rainfall. It is routed by a
-causal triangular unit hydrograph whose continuous mode is the public
-geometry's duration-corrected Snyder lag. Integrating the triangle over model
-steps gives a non-negative discrete kernel that sums to one.
+causal triangular unit hydrograph whose peak follows the public geometry's
+duration-corrected Snyder lag from the effective-rainfall centroid. Integrating
+the triangle over model steps gives a non-negative discrete kernel that sums
+to one.
 """
 
 from __future__ import annotations
@@ -55,12 +56,16 @@ def validate_geometry(static: dict) -> tuple[float, float, float]:
     return area_km2, length_km, centroid_length_km
 
 
-def snyder_lag_hours(static: dict) -> tuple[float, float, float]:
+def snyder_lag_hours(
+    static: dict, *, ct: float = SNYDER_CT
+) -> tuple[float, float, float]:
     """Return corrected lag, raw lag and standard rain duration, in hours."""
     _area_km2, length_km, centroid_length_km = validate_geometry(static)
+    if not math.isfinite(ct) or ct <= 0.0:
+        raise ValueError("Snyder Ct must be finite and positive")
     raw_lag = (
         SNYDER_SI_CONVERSION
-        * SNYDER_CT
+        * ct
         * (length_km * centroid_length_km) ** 0.3
     )
     standard_duration = raw_lag / SNYDER_STANDARD_DURATION_RATIO
@@ -112,9 +117,13 @@ def route(values: list[float], kernel: list[float]) -> list[float]:
 
 
 def simulate(
-    forcing: list[dict], static: dict, dt_days: float
+    forcing: list[dict],
+    static: dict,
+    dt_days: float,
+    *,
+    ct: float = SNYDER_CT,
 ) -> tuple[list[dict], dict]:
-    corrected_lag, raw_lag, standard_duration = snyder_lag_hours(static)
+    corrected_lag, raw_lag, standard_duration = snyder_lag_hours(static, ct=ct)
     effective_depth = []
     for step in forcing:
         rain_rate = float(step["pr"])
@@ -122,7 +131,12 @@ def simulate(
             raise ValueError("precipitation must be finite and non-negative")
         effective_depth.append(RUNOFF_COEFFICIENT * rain_rate * dt_days)
 
-    kernel = triangular_unit_hydrograph(corrected_lag / (24.0 * dt_days))
+    # Snyder lag starts at the centroid of the excess-rainfall block.  The
+    # kernel, however, is indexed from the beginning of that block.  For this
+    # one-day rectangular design storm those origins differ by 12 hours.
+    rainfall_centroid_offset = 0.5 * DESIGN_STORM_DURATION_HOURS
+    kernel_mode_hours = corrected_lag + rainfall_centroid_offset
+    kernel = triangular_unit_hydrograph(kernel_mode_hours / (24.0 * dt_days))
     routed_depth = route(effective_depth, kernel)
     rows = [
         {"time": step["time"], "mrro": routed_depth[i] / dt_days}
@@ -133,8 +147,10 @@ def simulate(
         "raw_snyder_lag_hours": raw_lag,
         "standard_excess_rain_duration_hours": standard_duration,
         "design_storm_duration_hours": DESIGN_STORM_DURATION_HOURS,
+        "snyder_ct": ct,
         "lag_hours": corrected_lag,
-        "kernel_mode_hours": corrected_lag,
+        "rainfall_centroid_offset_hours": rainfall_centroid_offset,
+        "kernel_mode_from_storm_start_hours": kernel_mode_hours,
         "kernel_weights": kernel,
         "kernel_sum": math.fsum(kernel),
         "runoff_coefficient": RUNOFF_COEFFICIENT,

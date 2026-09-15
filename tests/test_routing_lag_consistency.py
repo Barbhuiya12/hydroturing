@@ -8,6 +8,7 @@ cases each have a small counterexample here.
 
 from __future__ import annotations
 
+import importlib.util
 from pathlib import Path
 
 import numpy as np
@@ -16,8 +17,10 @@ import pytest
 
 from hydroturing import registry
 from hydroturing.criteria import get, is_paired
-from hydroturing.harness import build_case, compatibility_issues
+from hydroturing.harness import build_case, compatibility_issues, run_probe
 from hydroturing.protocol import Case, RunResult
+from hydroturing.scoring import PASS
+from hydroturing.seeds import gate_seeds
 from hydroturing.spec import Criterion, ProbeSpec
 
 VARIANTS = ("small", "medium", "large", "xlarge")
@@ -31,7 +34,7 @@ EVENT = slice(SPINUP_DAYS + 20, SPINUP_DAYS + 21)
 COMMON = {
     "event_column": "_event_pr",
     "runoff": "mrro",
-    "baseline_days": 30,
+    "baseline_days": 5,
     "min_response_fraction": 0.01,
     "min_pre_event_days": 10,
     "min_post_event_days": 30,
@@ -45,7 +48,6 @@ GEOMETRY_KEYS = {
 EVALUATED_MODELS = (
     "cwatm",
     "dhbv2",
-    "flex_lumped",
     "flex_topo",
     "google_flood_forecast",
     "lisflood",
@@ -58,6 +60,26 @@ EVALUATED_MODELS = (
 @pytest.fixture(scope="module")
 def registered_probe() -> ProbeSpec:
     return registry.find_probe("momentum/routing-lag-consistency")
+
+
+@pytest.fixture(scope="module")
+def flex_adapter():
+    path = registry.find_model("flex_lumped").path / "ht_adapter.py"
+    spec = importlib.util.spec_from_file_location("routing_lag_flex_lumped", path)
+    module = importlib.util.module_from_spec(spec)
+    assert spec.loader is not None
+    spec.loader.exec_module(module)
+    return module
+
+
+@pytest.fixture(scope="module")
+def snyder_adapter():
+    path = registry.find_model("reference_snyder_router").path / "ht_adapter.py"
+    spec = importlib.util.spec_from_file_location("routing_lag_snyder_reference", path)
+    module = importlib.util.module_from_spec(spec)
+    assert spec.loader is not None
+    spec.loader.exec_module(module)
+    return module
 
 
 def _probe() -> ProbeSpec:
@@ -190,6 +212,7 @@ def test_registered_variants_share_forcing_and_change_only_geometry(registered_p
     "model_name",
     [
         "reference_snyder_router",
+        "flex_lumped",
         "reference_instant_router",
         "reference_inverse_router",
     ],
@@ -199,6 +222,135 @@ def test_routing_references_declare_compatible_inputs(registered_probe, model_na
     assert compatibility_issues(
         registry.find_model(model_name), registered_probe, case
     ) == []
+
+
+def test_flex_lumped_passes_all_registered_gate_seeds(registered_probe):
+    outcome = run_probe(
+        registry.find_model("flex_lumped"),
+        registered_probe,
+        gate_seeds(registered_probe.id, registered_probe.n_seeds),
+    )
+    assert outcome.verdict == PASS, outcome.reason
+
+
+def test_flex_lumped_maps_complete_geometry_to_its_native_lag(flex_adapter):
+    static = {
+        "area_km2": AREAS[2],
+        "main_channel_length_km": LENGTHS[2],
+        "centroid_channel_length_km": 0.5 * LENGTHS[2],
+    }
+    dt_days = 1.0
+    base_days, routing = flex_adapter.routing_parameters(static, dt_days)
+    expected_travel_days = static["centroid_channel_length_km"] / 86.4
+    expected_mode_from_row_start = expected_travel_days + 0.5 * dt_days
+    assert base_days == pytest.approx(2.0 * expected_mode_from_row_start)
+    assert routing["flood_wave_celerity_m_s"] == pytest.approx(1.0)
+    assert routing["celerity_reference"] == (
+        "https://doi.org/10.5194/hess-24-2655-2020"
+    )
+    assert "not site-specific" in routing["celerity_assumption"]
+    assert routing["travel_distance_km"] == pytest.approx(
+        static["centroid_channel_length_km"]
+    )
+    assert "centroid-to-outlet" in routing["distance_definition"]
+    assert routing["channel_travel_time_days"] == pytest.approx(
+        expected_travel_days
+    )
+    assert routing["travel_time_origin"] == "generated-runoff interval centroid"
+    assert not any("snyder" in key.lower() for key in routing)
+    assert routing["source_interval_centroid_offset_days"] == pytest.approx(0.5)
+
+
+@pytest.mark.parametrize("dt_days", [1.0, 1.0 / 24.0])
+def test_flex_lag_kernel_represents_channel_travel_from_source_row_centroid(
+    flex_adapter, dt_days
+):
+    static = {
+        "area_km2": AREAS[2],
+        "main_channel_length_km": LENGTHS[2],
+        "centroid_channel_length_km": 0.5 * LENGTHS[2],
+    }
+    base_days, routing = flex_adapter.routing_parameters(static, dt_days)
+    weights = np.asarray(flex_adapter.lag_weights(base_days / dt_days))
+    peak = np.max(weights)
+    tied = np.flatnonzero(np.isclose(weights, peak, rtol=1e-12, atol=1e-12))
+    peak_centroid_days = float(np.mean((tied + 0.5) * dt_days))
+    source_centroid_days = 0.5 * dt_days
+    measured_lag_days = peak_centroid_days - source_centroid_days
+    assert measured_lag_days == pytest.approx(
+        routing["channel_travel_time_days"], abs=0.5 * dt_days
+    )
+
+
+def test_flex_lumped_keeps_wark_lag_when_only_area_is_available(flex_adapter):
+    base_days, routing = flex_adapter.routing_parameters(
+        {"area_km2": 2500.0}, 1.0
+    )
+    assert base_days == pytest.approx(1.1)
+    assert routing["parameter_source"] == "calibrated Wark fallback"
+
+
+@pytest.mark.parametrize(
+    "static",
+    [
+        {"area_km2": None},
+        {"area_km2": 300.0, "main_channel_length_km": 39.0},
+        {
+            "area_km2": 300.0,
+            "main_channel_length_km": 39.0,
+            "centroid_channel_length_km": 50.0,
+        },
+    ],
+)
+def test_flex_lumped_rejects_invalid_or_partial_geometry(flex_adapter, static):
+    with pytest.raises(ValueError):
+        flex_adapter.routing_parameters(static, 1.0)
+
+
+@pytest.mark.parametrize(
+    "seed", gate_seeds("momentum/routing-lag-consistency", 3)
+)
+def test_ct2_snyder_reference_uses_rainfall_centroid_origin(
+    registered_probe, snyder_adapter, seed
+):
+    runs = {}
+    routing = {}
+    for variant in registered_probe.variants:
+        case = build_case(registered_probe, seed, variant)
+        staged_forcing = case.forcing.loc[
+            :, [name for name in case.forcing.columns if not name.startswith("_")]
+        ]
+        rows, routing[variant] = snyder_adapter.simulate(
+            staged_forcing.to_dict("records"), case.static, 1.0, ct=2.0
+        )
+        runs[variant] = RunResult(
+            case,
+            pd.DataFrame(rows),
+            {"status": "ok", "routing": routing[variant]},
+            0.0,
+        )
+
+    params = {item.name: item.params for item in registered_probe.criteria}
+    bounds = get("lag_time_bounds")(
+        runs, registered_probe, dict(params["lag_time_bounds"])
+    )
+    scaling = get("scaling_monotonicity")(
+        runs, registered_probe, dict(params["scaling_monotonicity"])
+    )
+    assert bounds.passed, bounds.message
+    assert scaling.passed, scaling.message
+    observed = [
+        bounds.diagnostics["variants"][variant]["observed_lag_days"]
+        for variant in registered_probe.variants
+    ]
+    assert observed == [0.0, 1.0, 1.0, 2.0]
+    for variant in registered_probe.variants:
+        meta = routing[variant]
+        assert meta["snyder_ct"] == pytest.approx(2.0)
+        assert meta["rainfall_centroid_offset_hours"] == pytest.approx(12.0)
+        assert meta["kernel_mode_from_storm_start_hours"] == pytest.approx(
+            meta["lag_hours"] + 12.0
+        )
 
 
 def test_evaluated_models_are_not_judged_without_geometry_inputs(registered_probe):
@@ -271,7 +423,7 @@ def test_inverse_area_scaling_fails_monotonicity_without_failing_the_span():
         },
     )
     assert not result.passed
-    assert result.value == pytest.approx(2.0)
+    assert result.value == pytest.approx(0.5)
     assert result.diagnostics["minimum_adjacent_increment_days"] == -1.0
     assert "medium to large" in result.message
 
@@ -288,6 +440,29 @@ def test_equal_runoff_maxima_use_their_temporal_centroid():
     small = result.diagnostics["variants"]["small"]
     assert small["tied_peak_steps"] == 2
     assert small["observed_lag_days"] == pytest.approx(1.5)
+
+
+def test_response_baseline_uses_only_rows_immediately_before_the_event():
+    runs = _runs()
+    run = runs["small"]
+    table = run.table.copy()
+    table.loc[: EVENT.start - 6, "mrro"] = 100.0
+    table.loc[EVENT.start - 5 : EVENT.start - 1, "mrro"] = 0.2
+    runs["small"] = RunResult(run.case, table, run.meta, run.wall_seconds)
+    result = get("lag_time_bounds")(
+        runs,
+        _probe(),
+        {
+            **COMMON,
+            "lower_ratio": 0.5,
+            "upper_ratio": 2.0,
+            "discretization_tolerance_days": 0.5,
+        },
+    )
+    assert result.passed, result.message
+    assert result.diagnostics["variants"]["small"][
+        "baseline_runoff"
+    ] == pytest.approx(0.2)
 
 
 @pytest.mark.parametrize("criterion_name", ["lag_time_bounds", "scaling_monotonicity"])
@@ -416,6 +591,11 @@ def test_a_fixed_lag_fails_the_full_ladder_span():
         },
     )
     assert not result.passed
+    assert result.value > 0.0
+    assert result.threshold == 0.0
+    assert result.diagnostics["span_shortfall_days"] == pytest.approx(
+        result.value
+    )
     assert "lag span" in result.message
 
 

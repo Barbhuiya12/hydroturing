@@ -137,15 +137,15 @@ it. A probe that needs a variable the model does not report, or that the model
 cannot consume, is N/A for it and in neither number, so the totals differ
 between models.
 
-All nine evaluated models are N/A (INCOMPATIBLE) on
+Eight of the nine evaluated models are N/A (INCOMPATIBLE) on
 `momentum/routing-lag-consistency`: `google_flood_forecast`, `dhbv2`,
-`wflow_sbm`, `summa`, `cwatm`, `lisflood`, `flex_lumped`, `flex_topo` and
-`sacsma_snow17` do not currently declare consumption of either required
-channel-length field. Several adapters do read area, sometimes only to convert
-runoff depth to discharge, but area alone does not expose the geomorphic travel
-path this probe changes. The new probe therefore leaves every existing N/M
-standing unchanged. N/A is neither a pass nor a failure; it means the probe
-cannot ask the declared model interface this question.
+`wflow_sbm`, `summa`, `cwatm`, `lisflood`, `flex_topo` and `sacsma_snow17` do
+not currently declare consumption of either required channel-length field.
+Several adapters do read area, sometimes only to convert runoff depth to
+discharge, but area alone does not expose the geomorphic travel path this probe
+changes. `flex_lumped` consumes the complete geometry, maps it to its native
+triangular routing lag and passes. N/A is neither a pass nor a failure; it means
+the probe cannot ask the declared model interface this question.
 
 | Model | Kind | What it does | Standing |
 | --- | --- | --- | --- |
@@ -156,7 +156,7 @@ cannot ask the declared model interface this question.
 | [`cwatm`](models/cwatm) | submitted | CWatM 1.11, IIASA's Community Water Model and an ISIMIP global hydrological model, run on one grid cell with every store it carries reported. | **FAIL (VIOLATION)**, 14 of 18 probes passed. Its budget closes to 0.03%, and its own water-demand module pumps a prescribed withdrawal out of groundwater to within 0.004%. That 0.03% is water its capillary rise creates, a few thousandths of a millimetre a day, and on `mass/extreme-event-closure` it fails 3 to 8 one-day drizzle events of under 0.07 mm per seed, where 0.001 to 0.005 mm more leaves or is stored than fell, against that probe's allowance of 5% of the rain or 0.001 mm, whichever is larger. It also fails on a groundwater reservoir with no dt that drains 24 times too fast at an hourly step (52% of the rain); on a 0.29 mm/day dip after an added storm, where preferential flow turns surface runoff into interflow that leaves through a slower runoff-concentration lag; and on evaporation on wet soil at 0.70 of demand, near the cap its crop coefficients set. The last two are packaging choices as much as results: this package follows the CWatM-Earth-30min template its parameters come from, and with `preferentialFlow = False`, the setting of the pinned model repository's own 30′ templates, both pass |
 | [`lisflood`](models/lisflood) | submitted | LISFLOOD 5.0.0, the EC Joint Research Centre's distributed model behind EFAS and GloFAS, stepped through its own Python framework on one representative 5 km cell and reporting every store its own water balance module counts. | **FAIL (ERROR)**, 15 of 18 probes passed. Its budget closes to 1e-13 mm per step; it reports no heat fluxes and no surface temperature, so the five energy probes that need an energy output cannot ask it anything and are N/A. It fails the step probe because its potential infiltration is a pore-space storage multiplied by the step length, so rain falling within hours runs off at the hourly step (13.0% of the rain between PT1H and PT1D). The two ten-year probes take about 90 s per run under amd64 emulation against a 60 s budget, so their rows are ERROR from the host's speed, and those two ERROR rows alone make the verdict FAIL (ERROR). Run outside the limit, `mass/precipitation-counterfactual` passes every criterion. On `mass/human-abstraction`, LISFLOOD's own water-use rule takes the groundwater share in full and the rest only from channel water above an environmental-flow reserve, recording what the channel cannot give as shortage. On this one-cell water region it withdraws 17 to 33% of the prescription, from the sourced reserve to none, and leaves 67 to 83% where the probe allows 5% |
 | `reference_bucket` | exact | conserves water exactly by construction | must pass every probe that can ask it anything; N/A on the five energy probes that need outputs it does not report |
-| [`flex_lumped`](models/flex_lumped) | physical | lumped FLEX/HBV: interception, beta-partitioned unsaturated store, fast and slow reservoirs, triangular lag | must pass every probe that can ask it anything; **PASS**, 18 of 18 |
+| [`flex_lumped`](models/flex_lumped) | physical | lumped FLEX/HBV: interception, beta-partitioned unsaturated store, fast and slow reservoirs, geometry-aware triangular lag | must pass every probe that can ask it anything; **PASS**, 19 of 19 |
 | [`flex_topo`](models/flex_topo) | physical | FLEX-Topo: plateau, hillslope and wetland units on real Wark fractions sharing one groundwater store | must pass every probe that can ask it anything; **PASS**, 18 of 18 |
 | [`sacsma_snow17`](models/sacsma_snow17) | physical | the NWS's SAC-SMA with Snow-17 and a gamma unit hydrograph, ported from the legacy Fortran and checked against it | must pass every probe that can ask it anything; **PASS**, 18 of 18 |
 | `reference_coupled` | exact | the bucket with snow sublimation and a surface energy budget: every kilogram converted at the latent heat of the phase it actually underwent | must pass every criterion of the three energy-flux probes; supports daily and hourly steps |
@@ -187,7 +187,7 @@ cannot ask the declared model interface this question.
 | `reference_sublimating` | broken | loses 40% of every snowfall to an unreported sublimation | caught by `phase_invariance` |
 | `reference_thirsty` | broken | evaporates a fixed share of its soil store, never reading demand; conserves water exactly | caught by `demand_consistency` |
 | `reference_stuck_router` | broken | a routing kernel summing to 0.9, so a tenth of every day's runoff never leaves the channel | caught by `routing_conservation` |
-| `reference_snyder_router` | exact | consumes the declared geometry and routes a fixed rain share through a causal, conservative triangular unit hydrograph centred on the duration-corrected Snyder lag | must pass both criteria of `routing-lag-consistency` |
+| `reference_snyder_router` | exact | consumes the declared geometry and routes a fixed rain share through a causal, conservative triangular unit hydrograph whose peak follows the duration-corrected Snyder lag from the excess-rainfall centroid | must pass both criteria of `routing-lag-consistency` |
 | `reference_instant_router` | broken | accepts the geometry but returns the storm runoff in the rainfall row at every catchment scale | caught by `lag_time_bounds` |
 | `reference_inverse_router` | broken | uses in-bounds lags of 1, 2, 1 and 3 days in ascending area order | caught by `scaling_monotonicity` |
 | `reference_streamflow_only` | honest limit | reports discharge only, from a store that never reads the temperature | N/A (INCOMPLETE) on budget probes; caught by `response_sign` |

@@ -20,8 +20,9 @@ more than 30 post-event days for the routed response.
 
 Proposal #8 used a three-hour storm as an example. This implementation adapts
 it to one `PT1D` row so the probe can exercise daily model adapters. A one-step
-pulse also makes the rainfall peak and rainfall-volume centroid identical,
-avoiding an extra sub-daily timing convention in the measured lag.
+pulse gives one unambiguous rainfall row. Row timestamps mark interval starts,
+so the continuous centroid of this 24-hour rectangular pulse is 12 hours after
+that row starts; the criterion measures from this interval centre.
 
 The four variants have byte-identical `time`, `pr`, `tas`, `pet` and hidden
 `_event_pr` columns. Area is prescribed, main-channel length follows Hack's
@@ -80,10 +81,13 @@ probe's storm lasts 24 hours, the non-standard-duration correction gives:
 ```text
 D_standard = t_raw / 5.5
 t_expected = t_raw - (D_standard - 24) / 4
+t_reference_peak_from_storm_start = t_expected + 24 / 2
 ```
 
 The resulting expected lags are approximately 0.631, 1.123, 2.250 and 3.335
-days. The Snyder relation comes from
+days from the excess-rainfall centroid to the runoff peak. The added 12 hours
+only converts that origin to the storm-start origin used to index the reference
+kernel; it is not additional physical travel time. The Snyder relation comes from
 [Snyder (1938), "Synthetic Unit-Graphs"](https://doi.org/10.1029/TR019i001p00447).
 
 Snyder's unit hydrograph is defined for **excess rainfall**, whereas the probe
@@ -99,12 +103,12 @@ The probe cannot isolate channel routing from those other processes.
 The precipitation time is the volume centroid of the hidden one-day event:
 
 ```text
-t_P = sum(t * event_pr) / sum(event_pr)
+t_P = sum(interval_centre(t) * event_pr) / sum(event_pr)
 ```
 
-For each variant, the criterion estimates pre-event runoff from up to 30 days
-before the event and finds the total-runoff peak from event onset to the end of
-the record:
+For each variant, the criterion estimates pre-event runoff from the five rows
+immediately before the event and finds the total-runoff peak from event onset
+to the end of the record:
 
 ```text
 t_observed = t_peak(mrro) - t_P
@@ -123,10 +127,10 @@ max(0, 0.5 * t_expected - 0.5 day)
 ```
 
 The factor-of-two interval allows broad empirical variation. The half-day term
-accounts for the quantisation of a daily peak. `scaling_monotonicity` sorts the
-runs by `area_km2`, allows at most a half-day apparent reversal between
-adjacent daily measurements, and requires at least two days of total lag growth
-from the smallest to the largest catchment.
+accounts for quantisation of a daily peak. `scaling_monotonicity` sorts the runs
+by `area_km2`, allows at most a half-day apparent reversal between adjacent
+daily measurements, and requires at least two days of total lag growth from
+the smallest to the largest catchment.
 
 | Criterion | Asserts |
 | --- | --- |
@@ -138,17 +142,58 @@ from the smallest to the largest catchment.
 | Reference model | Expected result | Required failure |
 | --- | --- | --- |
 | `reference_snyder_router` | PASS | |
+| `flex_lumped` | PASS | |
 | `reference_instant_router` | FAIL | `lag_time_bounds` |
 | `reference_inverse_router` | FAIL | `scaling_monotonicity` |
 
 The positive reference converts a fixed share of rain to runoff and routes it
-with a causal, conservative triangular unit hydrograph. Its continuous mode is
-the corrected Snyder lag; integrating the triangle over daily bins produces a
-kernel whose weights sum to one. The instantaneous control returns runoff in
+with a causal, conservative triangular unit hydrograph. Snyder lag is measured
+from the excess-rainfall centroid, so the triangle's continuous mode relative
+to the storm start is the corrected lag plus half the 24-hour event duration.
+Integrating that triangle over daily bins produces a kernel whose weights sum
+to one. A `Ct = 2` regression gives 0, 1, 1 and 2 days on all three gate seeds
+and passes the unchanged criteria. The instantaneous control returns runoff in
 the rainfall row and therefore has zero lag. The inverse control deliberately
 applies discrete lags of 1, 2, 1 and 3 days in ascending area order. Each lies
 inside its individual broad Snyder bound, but the one-day reversal between the
 second and third catchments fails the scaling criterion.
+
+`flex_lumped` is the registered physical control. It retains its nonlinear
+interception, soil-moisture partition, fast and slow reservoirs, then maps the
+centroid-to-outlet channel distance to its native triangular `Tlag` through
+the independent constant-celerity relation `travel time = Lc / c0`, with
+`c0 = 1.0 m s-1` fixed before gate evaluation. The choice follows
+[Beven (2020, Appendix equations A18--A20 and Figure A3)](https://doi.org/10.5194/hess-24-2655-2020),
+which distinguishes mean water velocity from kinematic-wave celerity, derives
+`c = dQ/dA`, and uses this value for an upland-channel example. The underlying
+generalised kinematic routing method is described by
+[Beven (1979)](https://doi.org/10.1029/WR015i005p01238). This value also lies
+within the approximately 0.8--1.6 m s-1 regional range independently measured by
+[Le Mesnil et al. (2021)](https://doi.org/10.5194/hess-25-1259-2021).
+It is a deliberately simple synthetic prior rather than a universal river
+constant. Applying it across the probe's synthetic catchment-size ladder is a
+first-order benchmark, not a site-calibrated hydraulic relation or an exact
+peak-time prediction. It shares no coefficient, length exponent or duration
+correction with the criterion's Snyder relation.
+
+FLEX's legacy triangle is indexed from the start of a generated-runoff row.
+To assign the channel travel time to this native row-based routing kernel using
+the source interval centre, the adapter uses
+`Tlag = 2 * (travel time + dt / 2)`: the half-step aligns time origins, while
+the factor two converts the target triangle mode to its full base. The final
+timing still includes the model's interception, soil, fast-reservoir and
+slow-reservoir effects. The routing kernel conserves generated runoff, while
+the total runoff peak is evaluated independently against the probe's
+duration-corrected Snyder range.
+
+The fixed-celerity channel travel times are 0.057, 0.226, 0.899 and 1.850 days
+from the small through xlarge variants. On all three registered gate seeds,
+the complete FLEX response measures 0, 1, 2 and 3 days at the daily output
+step; the small travel time is shorter than one output interval. The
+corresponding criterion expectations are 0.631, 1.123, 2.250 and 3.335 days.
+Every measured lag lies in its broad bound, the sequence never reverses, and
+its three-day span exceeds the declared two-day minimum. The reproducible
+archive row is in `models/result.csv`.
 
 Existing models that do not declare consumption of both channel-length fields
 are formally N/A (INCOMPATIBLE) on this probe. This avoids scoring a geometry

@@ -47,7 +47,7 @@ criteria:
       lower_ratio: 0.5
       upper_ratio: 2.0
       discretization_tolerance_days: 0.5
-      baseline_days: 30
+      baseline_days: 5
       min_response_fraction: 0.01
       min_pre_event_days: 10
       min_post_event_days: 30
@@ -55,7 +55,7 @@ criteria:
   - scaling_monotonicity:
       event_column: _event_pr
       runoff: mrro
-      baseline_days: 30
+      baseline_days: 5
       min_response_fraction: 0.01
       min_pre_event_days: 10
       min_post_event_days: 30
@@ -63,7 +63,7 @@ criteria:
       min_span_days: 2.0
 
 baselines:
-  must_pass: [reference_snyder_router]
+  must_pass: [reference_snyder_router, flex_lumped]
   must_fail:
     # Returns the storm response immediately at every catchment scale.
     reference_instant_router: lag_time_bounds

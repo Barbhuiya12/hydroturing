@@ -4,7 +4,8 @@ description: >
   Geometry-aware rainfall-runoff reference for the routing-lag probe. It
   derives a duration-corrected Snyder lag from Hack channel geometry, then
   routes a fixed share of rainfall through a causal, conservative triangular
-  unit hydrograph whose mode is that travel time.
+  unit hydrograph whose peak occurs that travel time after the excess-rainfall
+  centroid.
 authors: [binbinlan]
 license: PolyForm-Noncommercial-1.0.0
 runner: subprocess

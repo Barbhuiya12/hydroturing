@@ -272,7 +272,7 @@ The reference models available today:
 | `reference_sublimating` | loses 40% of every snowfall unreported | `phase_invariance` |
 | `reference_thirsty` | evaporates a fixed share of its soil store whatever the demand | `demand_consistency` |
 | `reference_stuck_router` | a routing kernel summing to 0.9 | `routing_conservation` |
-| `reference_snyder_router` | consumes public catchment geometry and routes rain with a conservative triangular unit hydrograph whose mode follows the duration-corrected Snyder lag | nothing, it must pass the routing-lag probe |
+| `reference_snyder_router` | consumes public catchment geometry and routes rain with a conservative triangular unit hydrograph whose peak follows the duration-corrected Snyder lag from the excess-rainfall centroid | nothing, it must pass the routing-lag probe |
 | `reference_instant_router` | accepts the geometry but returns runoff in the rainfall row at every scale | `lag_time_bounds` |
 | `reference_inverse_router` | uses individually plausible lags that reverse once as catchment scale grows | `scaling_monotonicity` |
 | `reference_coupled` | the bucket with snow sublimation and a surface energy budget; every kilogram converted at the latent heat of the phase it actually underwent | nothing, it must pass the energy probes |
