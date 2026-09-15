@@ -68,7 +68,7 @@ not.
 
 ## The probes
 
-Twenty-five: seventeen under mass, six under energy and two under momentum.
+Twenty-six: seventeen under mass, six under energy and three under momentum.
 Each was merged only after the acceptance gate saw it pass its declared
 exact reference and fail a purpose-built broken one on the named criterion.
 Four physical models, a bucket that conserves water exactly, two
@@ -76,8 +76,11 @@ hand-written FLEX models and the NWS's SAC-SMA with Snow-17, must pass
 every probe that can ask them anything; five of the six energy probes need
 outputs they do not report and are not scored for them. A probe that fails a
 physical model is examined before the model is; that is the first thing done
-with any probe pull request. Eleven of the twenty-five can be scored on a model
-that reports runoff and nothing else. `ht list` prints them;
+with any probe pull request. Twelve of the twenty-six require no model output
+beyond runoff. That output-only count includes `momentum/routing-lag-consistency`,
+which is eligible only when the model also declares that it consumes `pr` and
+the three geometry inputs `area_km2`, `main_channel_length_km` and
+`centroid_channel_length_km`. `ht list` prints the probes;
 [ROADMAP.md](ROADMAP.md#probes-we-want) has the eight more we want, all
 unclaimed.
 
@@ -107,6 +110,7 @@ unclaimed.
 | [`energy/radiation-consistency`](probes/energy/radiation-consistency) | energy | The surface temperature a model reports and the upward longwave it reports: do they describe one surface, hour by hour, at the emissivity it was given? | `reference_air_emitter`, `reference_no_reflection` |
 | [`energy/soil-heat-storage-consistency`](probes/energy/soil-heat-storage-consistency) | energy | Does heat retained in a soil layer agree with its temperature change during heating and recovery? | `reference_frozen_soil`, `reference_half_soil` |
 | [`momentum/routing-conservation`](probes/momentum/routing-conservation) | momentum | The channel store is never negative and never holds more than its hydrograph can. | `reference_stuck_router` |
+| [`momentum/routing-lag-consistency`](probes/momentum/routing-lag-consistency) | momentum | The same isolated storm crosses four synthetic catchment geometries: does the runoff peak lie on a broad Snyder travel-time scale and grow across the geometry ladder? | `reference_instant_router`, `reference_inverse_router` |
 | [`momentum/stage-discharge-monotonic`](probes/momentum/stage-discharge-monotonic) | momentum | Does the stage a model reports rise with its discharge, and does the rating loop the way a flood wave does, the rising limb sitting lower than the falling one at the same discharge? | `reference_rating_drift`, `reference_rating_inverted`, `reference_flat_stage` |
 
 ## Models
@@ -135,6 +139,16 @@ it. A probe that needs a variable the model does not report, or that the model
 cannot consume, is N/A for it and in neither number, so the totals differ
 between models.
 
+Eight of the nine evaluated models are N/A (INCOMPATIBLE) on
+`momentum/routing-lag-consistency`: `google_flood_forecast`, `dhbv2`,
+`wflow_sbm`, `summa`, `cwatm`, `lisflood`, `flex_topo` and `sacsma_snow17` do
+not currently declare consumption of either required channel-length field.
+Several adapters do read area, sometimes only to convert runoff depth to
+discharge, but area alone does not expose the geomorphic travel path this probe
+changes. `flex_lumped` consumes the complete geometry, maps it to its native
+triangular routing lag and passes. N/A is neither a pass nor a failure; it means
+the probe cannot ask the declared model interface this question.
+
 | Model | Kind | What it does | Standing |
 | --- | --- | --- | --- |
 | [`google_flood_forecast`](models/google_flood_forecast) | submitted | The mean-embedding forecast LSTM behind Google Flood Hub, at the published weights. Predicts discharge and nothing else. | **FAIL (VIOLATION)**, 5 of 11 probes passed. It passes the runoff bounds, memory, area, causality and steady state, and fails step, extreme rain, phase, warming, dry-down, and a 0.18 mm/day dip after an added storm |
@@ -144,7 +158,7 @@ between models.
 | [`cwatm`](models/cwatm) | submitted | CWatM 1.11, IIASA's Community Water Model and an ISIMIP global hydrological model, run on one grid cell with every store it carries reported. | **FAIL (VIOLATION)**, 15 of 19 probes passed. Its budget closes to 0.03%, and its own water-demand module pumps a prescribed withdrawal out of groundwater to within 0.004%. That 0.03% is water its capillary rise creates, a few thousandths of a millimetre a day, and on `mass/extreme-event-closure` it fails 3 to 8 one-day drizzle events of under 0.07 mm per seed, where 0.001 to 0.005 mm more leaves or is stored than fell, against that probe's allowance of 5% of the rain or 0.001 mm, whichever is larger. It also fails on a groundwater reservoir with no dt that drains 24 times too fast at an hourly step (52% of the rain); on a 0.29 mm/day dip after an added storm, where preferential flow turns surface runoff into interflow that leaves through a slower runoff-concentration lag; and on evaporation on wet soil at 0.70 of demand, near the cap its crop coefficients set. The last two are packaging choices as much as results: this package follows the CWatM-Earth-30min template its parameters come from, and with `preferentialFlow = False`, the setting of the pinned model repository's own 30′ templates, both pass. |
 | [`lisflood`](models/lisflood) | submitted | LISFLOOD 5.0.0, the EC Joint Research Centre's distributed model behind EFAS and GloFAS, stepped through its own Python framework on one representative 5 km cell and reporting every store its own water balance module counts. | **FAIL (ERROR)**, 16 of 19 probes passed. Its budget closes to 1e-13 mm per step; it reports no heat fluxes and no surface temperature, so the five energy probes that need an energy output cannot ask it anything and are N/A. It fails the step probe because its potential infiltration is a pore-space storage multiplied by the step length, so rain falling within hours runs off at the hourly step (13.0% of the rain between PT1H and PT1D). The two ten-year probes take about 90 s per run under amd64 emulation against a 60 s budget, so their rows are ERROR from the host's speed, and those two ERROR rows alone make the verdict FAIL (ERROR). Run outside the limit, `mass/precipitation-counterfactual` passes every criterion. On `mass/human-abstraction`, LISFLOOD's own water-use rule takes the groundwater share in full and the rest only from channel water above an environmental-flow reserve, recording what the channel cannot give as shortage. On this one-cell water region it withdraws 17 to 33% of the prescription, from the sourced reserve to none, and leaves 67 to 83% where the probe allows 5%. |
 | `reference_bucket` | exact | conserves water exactly by construction | must pass every probe that can ask it anything; N/A on the five energy probes that need outputs it does not report |
-| [`flex_lumped`](models/flex_lumped) | physical | lumped FLEX/HBV: interception, beta-partitioned unsaturated store, fast and slow reservoirs, triangular lag | must pass every probe that can ask it anything; **PASS**, 20 of 20 |
+| [`flex_lumped`](models/flex_lumped) | physical | lumped FLEX/HBV: interception, beta-partitioned unsaturated store, fast and slow reservoirs, geometry-aware triangular lag | must pass every probe that can ask it anything; **PASS**, 21 of 21 |
 | [`flex_topo`](models/flex_topo) | physical | FLEX-Topo: plateau, hillslope and wetland units on real Wark fractions sharing one groundwater store | must pass every probe that can ask it anything; **PASS**, 20 of 20 |
 | [`sacsma_snow17`](models/sacsma_snow17) | physical | the NWS's SAC-SMA with Snow-17 and a gamma unit hydrograph, ported from the legacy Fortran and checked against it | must pass every probe that can ask it anything; **PASS**, 20 of 20 |
 | `reference_coupled` | exact | the bucket with snow sublimation and a surface energy budget: every kilogram converted at the latent heat of the phase it actually underwent | must pass every criterion of the three energy-flux probes; supports daily and hourly steps |
@@ -182,6 +196,9 @@ between models.
 | `reference_sublimating` | broken | loses 40% of every snowfall to an unreported sublimation | caught by `phase_invariance` |
 | `reference_thirsty` | broken | evaporates a fixed share of its soil store, never reading demand; conserves water exactly | caught by `demand_consistency` |
 | `reference_stuck_router` | broken | a routing kernel summing to 0.9, so a tenth of every day's runoff never leaves the channel | caught by `routing_conservation` |
+| `reference_snyder_router` | exact | consumes the declared geometry and routes a fixed rain share through a causal, conservative triangular unit hydrograph whose peak follows the duration-corrected Snyder lag from the excess-rainfall centroid | must pass both criteria of `routing-lag-consistency` |
+| `reference_instant_router` | broken | accepts the geometry but returns the storm runoff in the rainfall row at every catchment scale | caught by `lag_time_bounds` |
+| `reference_inverse_router` | broken | uses in-bounds lags of 1, 2, 1 and 3 days in ascending area order | caught by `scaling_monotonicity` |
 | `reference_rating` | exact | the bucket with a real rating curve: yield enters a shallow floodplain and a deep channel reservoir with separated time constants, and the stage is the depth the channel's volume makes in a fixed bed, so the gauge rises with the flow and a falling recession sits above where it sat on the way up | must pass every criterion of `momentum/stage-discharge-monotonic` |
 | `reference_rating_drift` | broken | derives its stage from a slowly decaying running maximum of discharge (`peak = max(q, 0.997 * peak)` per day), so the gauge ratchets up with each flood far faster than it relaxes, stepping down only a fraction of a percent a day | caught by `rating_monotonic` |
 | `reference_rating_inverted` | broken | reads the loop backwards, high while the flood is arriving and low once it is leaving: monotone in discharge, so only the loop sees it | caught by `rating_loop` |
@@ -357,7 +374,7 @@ where that conversation happens, before and alongside the issues.
 
 ## Status
 
-Suite `0.1.0`, pre-release. Twenty-five probes, seventeen mass, six energy, two momentum, synthetic track only. More
+Suite `0.1.0`, pre-release. Twenty-six probes, seventeen mass, six energy, three momentum, synthetic track only. More
 energy and momentum probes, and the real-data track, are next. The harness runs paired cases and
 scores labelled regimes; spatial and temporal closure, counterfactual response
 and invariance are represented in the suite. The roadmap lists the remaining
