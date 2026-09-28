@@ -285,7 +285,7 @@ def test_a_zero_in_dis_with_runoff_behind_it_is_scored_on_the_runoff():
     assert result.diagnostics["scored_steps"] == 400
     assert result.diagnostics["second_reading"] == "mrro"
     assert result.diagnostics["steps_read_from_second_reading"] == n_zeroed
-    assert f"{n_zeroed} of the scored steps report no 'dis'" in result.message
+    assert f"{n_zeroed} of the scored steps are scored on 'mrro'" in result.message
 
     # With only `dis` to read, the same record is bounded by the floor alone:
     # the criterion's own default lets it through, and the floor this probe
@@ -295,6 +295,54 @@ def test_a_zero_in_dis_with_runoff_behind_it_is_scored_on_the_runoff():
     declared = FROUDE(dis_only, None, {"min_scored_fraction": 0.9})
     assert declared.status == FAIL
     assert "dry or flat" in declared.message
+
+
+def test_a_merely_small_dis_with_runoff_behind_it_is_scored_on_the_runoff():
+    """A guard written as a test for a zero closes one point and not the move.
+
+    The escape does not need the discharge gone, only small enough to bring the
+    pair under the limit, and one multiplication is enough: measured on the
+    probe's own must-fail at the head that closed the zero door, scaling every
+    step's `dis` by `1e-9` passed, and so did scaling it by `0.5` — a gauge
+    reporting half the discharge it carries. Scoring the larger of the two
+    columns closes both, because the runoff is still carrying the water, and
+    the record lands exactly on the unmodified must-fail.
+    """
+    q = np.concatenate([np.full(60, 0.2), np.linspace(1.0, 50.0, 340)])
+    stage = manning_depth(q, width_m=5 * WIDTH_M)
+    runoff = _runoff_for(q)
+    control = FROUDE(build(q=q, stage=stage, mrro=runoff), None, {})
+    assert control.status == FAIL
+
+    for factor in (1e-9, 0.5):
+        shrunk = FROUDE(build(q=q * factor, stage=stage, mrro=runoff), None, {})
+        assert shrunk.status == FAIL, factor
+        assert shrunk.diagnostics["max_froude"] == pytest.approx(
+            control.diagnostics["max_froude"], rel=1e-9)
+        assert shrunk.diagnostics["scored_steps"] == 400
+        assert shrunk.diagnostics["steps_read_from_second_reading"] == 400
+
+
+def test_the_runoff_is_scored_where_it_exceeds_a_nonzero_discharge():
+    """The larger reading, not the zero fallback: a column below the other one
+    is not the model's to write down to a passing size.
+
+    Under the contract the two columns are two readings of one outflow, so a
+    `dis` that reports a tenth of the runoff is the same step as one that
+    reports none of it, and the pair is judged on the water that is there.
+    """
+    q = np.concatenate([np.full(60, 0.2), np.linspace(1.0, 50.0, 340)])
+    stage = manning_depth(q, width_m=5 * WIDTH_M)
+    runoff = _runoff_for(q)
+    control = FROUDE(build(q=q, stage=stage, mrro=runoff), None, {})
+    tenth = FROUDE(build(q=q * 0.1, stage=stage, mrro=runoff), None, {})
+    assert tenth.status == FAIL
+    assert tenth.diagnostics["discharge_source"] == "dis"
+    assert tenth.diagnostics["second_reading"] == "mrro"
+    assert tenth.diagnostics["steps_read_from_second_reading"] == 400
+    assert tenth.diagnostics["max_froude"] == pytest.approx(
+        control.diagnostics["max_froude"], rel=1e-9)
+    assert "are scored on 'mrro', which reports more flow than 'dis'" in tenth.message
 
 
 def test_a_step_both_readings_call_still_is_excused():
@@ -309,7 +357,28 @@ def test_a_step_both_readings_call_still_is_excused():
     assert result.status == PASS
     assert result.diagnostics["scored_steps"] == 200
     assert result.diagnostics["steps_read_from_second_reading"] == 0
-    assert "report no 'dis'" not in result.message
+    assert "are scored on 'mrro'" not in result.message
+
+
+def test_an_honest_runoff_above_the_discharge_is_scored_and_named():
+    """On honest output the larger reading is the runoff wherever routing lag
+    leaves it above the discharge, so the sentence has to be worded for that
+    and not only for a zero.
+
+    A rising limb's runoff exceeds what the routing has released, which is an
+    honest difference between two real readings of one outflow. Those steps are
+    scored on the larger one — the numbers barely move, because they are not the
+    peak — and the message names them, because the message is what the archive
+    keeps and a verdict that rests on the runoff column should say so.
+    """
+    q = np.linspace(1.0, 50.0, 400)
+    stage = manning_depth(q)
+    runoff = _runoff_for(q * 1.5)
+    result = FROUDE(build(q=q, stage=stage, mrro=runoff), None, {})
+    assert result.status == PASS
+    assert result.diagnostics["scored_steps"] == 400
+    assert result.diagnostics["steps_read_from_second_reading"] == 400
+    assert "are scored on 'mrro', which reports more flow than 'dis'" in result.message
 
 
 def test_a_bad_value_in_the_reading_a_silent_step_falls_back_to_is_refused():
@@ -335,6 +404,32 @@ def test_the_probe_declares_a_scored_floor_the_honest_models_clear():
     probe = find_probe("momentum/froude-regime")
     (froude,) = [c for c in probe.criteria if c.name == "froude_subcritical"]
     assert froude.params["min_scored_fraction"] == 0.9
+
+
+def test_both_columns_shrunk_together_stay_self_consistent():
+    """The residual this criterion cannot close, pinned so that it is a stated
+    limit rather than a surprise found later.
+
+    The pair is compared with itself and not with the truth, so a record whose
+    two columns are scaled by the same factor is as consistent as it was and
+    its implied Fr falls with the factor. On the probe's own must-fail a factor
+    of a half passes here; the guard on magnitude is `non_degenerate`, whose
+    runoff ratio is applied on a window this probe's 1460 days clears but whose
+    window is wide enough to reach only about a twentieth. Making the flow a
+    scored step is judged by something other than the model's own number is the
+    structural fix, and it is the question #118 exists to settle — so this
+    passes by design and must keep passing until that rule lands.
+    """
+    q = np.concatenate([np.full(60, 0.2), np.linspace(1.0, 50.0, 340)])
+    stage = manning_depth(q, width_m=5 * WIDTH_M)
+    runoff = _runoff_for(q)
+    control = FROUDE(build(q=q, stage=stage, mrro=runoff), None, {})
+    assert control.status == FAIL
+
+    shrunk = FROUDE(build(q=q * 0.5, stage=stage, mrro=runoff * 0.5), None, {})
+    assert shrunk.status == PASS
+    assert shrunk.diagnostics["max_froude"] == pytest.approx(
+        control.diagnostics["max_froude"] / 2.0, rel=1e-9)
 
 
 def test_a_shallow_step_carrying_water_is_scored_not_excused():

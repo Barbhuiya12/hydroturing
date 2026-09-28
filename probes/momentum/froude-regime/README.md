@@ -211,22 +211,50 @@ that went unexamined. Reading dryness from the flow closes that door.
 
 **A zero in one flow column is not an excuse either.** A step is excused when
 the model reports that nothing moved through it, and the model is the one
-reporting. With the scored set decided on `dis` alone, the must-fail model
-could pass by writing a zero into `dis` on exactly the steps it goes
-supercritical on, while its `mrro` still carried every drop: that left 144,
-154 and 244 of 1460 steps scored on the three gate seeds, above the 5% floor
-this probe then declared, and all three passed. A gauge that was honest except
-at its top 5% of flows, zeroed there, passed the same way. Under the contract
-the two columns are two readings of the same outflow, so a step `dis` calls
-still and `mrro` does not is scored on `mrro`, and the message says how many
-were. Both constructions fail again, on all 1460 steps, and the honest
-baselines are unchanged.
+reporting. `dis` is the column this criterion prefers, so with the flow decided
+on that column alone the must-fail model could pass by writing a zero into it on
+exactly the steps it goes supercritical on, while its `mrro` still carried every
+drop: that left 144, 154 and 244 of 1460 steps scored on the three gate seeds,
+above the 5% floor this probe then declared, and all three passed. A gauge that
+was honest except at its top 5% of flows, zeroed there, passed the same way.
 
-What is left is a model that writes a zero into every flow column it reports.
-That costs it the rest of the suite — `mrro` is the flux every mass budget
-closes on — and it is bounded here by `min_scored_fraction`, now **0.9**: the
-four must-pass baselines score all 1460 steps on every gate seed, and over
-seeds 0–99 the lowest honest share is `sacsma_snow17` at 1400 of 1460, 96%.
+**Nor is a merely small one.** That fix was written as a test for a zero, and a
+test for a zero closes the point it tests rather than the move it was aimed at:
+the escape does not need the flow gone, only small enough to bring the pair under
+the limit. Measured at the head that closed the zero door, scaling every step's
+`dis` by `1e-9` passes this probe, and so does scaling it by `0.5` — a gauge
+reporting half the discharge it carries, with `mrro` untouched — and neither
+construction has to know which steps it fails on.
+
+The criterion therefore scores the **larger** of the two columns a model
+reports. Under the contract they are readings of one outflow, so the discharge a
+model reports cannot be brought below the runoff the same model reports, and a
+step is excused only where the larger reading is still. Both constructions fail
+again, on all 1460 steps, with every one of those steps scored on the runoff.
+The honest records are untouched — worst Fr stays at 0.445, 0.389, 0.417 and
+0.413 over the gate seeds, and the must-fail at 1.894, to three decimals — and
+so is the archive: where a model reports one outflow in both columns the two
+readings differ by at most `4.9e-13` relative, which is the rounding of the
+mm/day conversion and not a routing difference, so no honest step is counted as
+read from the second column and the three archived `PASS` rows are byte-
+identical. That rounding is why the count carries a relative tolerance rather
+than being read off a bit-level comparison, which would report it as a finding.
+
+What is left is a model that reports **both** columns uniformly small. This
+criterion compares the two numbers a model reports with each other and not with
+the truth, so a record scaled down by a constant factor stays self-consistent:
+scaling both columns by `0.5` passes, the implied worst Fr falling from 1.894 to
+0.947. The guard on magnitude is `non_degenerate`, and it is applied here — the
+scored window is 1460 days, over its one-year minimum — but its runoff-ratio
+window is `[0.02, 0.98]`, so it reaches a record shrunk to below about a
+twentieth of the honest flow (the ratio falls to 0.211 at a half) and nothing
+milder. A model that writes a zero into every flow column it reports is still
+bounded by `min_scored_fraction`, now **0.9**: the four must-pass baselines
+score all 1460 steps on every gate seed, and over seeds 0–99 the lowest honest
+share is `sacsma_snow17` at 1400 of 1460, 96%. Making the flow a scored step is
+judged by something other than the model's own number is the structural fix, and
+it is what #118 exists to settle; until then this probe reports consistency, and
+says so.
 
 ## What would make it sharper
 

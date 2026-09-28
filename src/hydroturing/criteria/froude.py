@@ -23,10 +23,11 @@ velocity is `Q / (w * d)` and the hydraulic depth is `d`, so
     Fr = Q / (w * d**1.5 * sqrt(g))
 
 which is the form scored here. Every quantity on the right is something the
-model has already declared: `Q` from `dis`, or from `mrro` over the
-catchment area when the model reports only a depth rate; `d` from the `stage`
-diagnostic; `w` from the case's static attributes, so all models are judged
-in the same channel rather than in one of their own choosing.
+model has already declared: `Q` from `dis`, or from `mrro` over the catchment
+area when the model reports only a depth rate — and where it reports both, the
+larger of the two; `d` from the `stage` diagnostic; `w` from the case's static
+attributes, so all models are judged in the same channel rather than in one of
+their own choosing.
 
 `stage` is a water-surface elevation on the case's fixed vertical datum, and
 the flow depth is `stage - bed_elevation_m`: the case declares the datum, the
@@ -62,12 +63,18 @@ honest reading.
 A step is left out when nothing is moving through it, and for no other reason —
 and "nothing" is read from every flow the model reports, not from the one this
 criterion prefers. `dis` is preferred, so a model reporting both columns could
-otherwise drop a step from the scored set with a zero in that column while its
-`mrro` still carried the water, which under the contract is the same outflow
-(`mrro` is the total runoff and `channel` holds what the routing has not
-released yet). Where the preferred column is silent and the other is not, the
-step is scored on the other. Only a step both readings call still is excused,
-and `min_scored_fraction` bounds how much of a record that can be.
+otherwise decide the flow it is judged by in that column: writing a zero there,
+or any factor of it small enough, leaves the pair subcritical while the runoff
+still carries the water, and under the contract the two are readings of the same
+outflow (`mrro` is the total runoff and `channel` holds what the routing has not
+released yet). The larger of the two readings is therefore the one scored, so the
+discharge a model reports cannot be brought below the runoff it also reports, and
+a step is excused only where the larger reading is still. `min_scored_fraction`
+bounds how much of a record that can be.
+What the larger reading does not reach is a model that reports both columns
+uniformly small: the criterion compares the two readings with each other rather
+than with the truth, so a record scaled down by a constant factor stays
+self-consistent, and the probe's README states that limit.
 The depth carries a floor of one centimetre, but the floor is a floor on the
 *division* rather than a dryness test: the depth is clamped to it, so a receding
 flow still has a number to divide by, and a step with water in it is scored at
@@ -158,6 +165,15 @@ DEFAULT_MAX_EXCEED_FRACTION = 0.0
 # Below this share of the record being scored, the case is degenerate for this
 # criterion: a reach that is dry or flat throughout has no regime to read.
 DEFAULT_MIN_SCORED_FRACTION = 0.05
+# How much larger the second reading has to be before a step is counted as
+# scored on it. The two flow columns are converted with the same constants, so a
+# record that reports one outflow twice agrees to the rounding of that conversion
+# rather than bit for bit, and a count taken from a bit-level test would report
+# that noise as a finding. The factor an escape needs to move the larger reading
+# is nine orders of magnitude wider than this, and the value scored is the larger
+# of the two whichever way the comparison goes, so this decides what the message
+# counts and not what the verdict rests on.
+FLOW_EQUAL_TOLERANCE = 1e-9
 
 
 def _depth(depth: np.ndarray, min_depth_m: float,
@@ -229,14 +245,14 @@ def _second_reading(run: RunResult, w, params: dict,
     """The other reading of the same outflow, where the model reports both.
 
     A step is excused when nothing is moving through the reach, and the model is
-    the one reporting whether anything is. `dis` is preferred, so a model that
-    reports both can take a step out of the scored set by writing a zero in that
-    one column while its `mrro` still carries the water — and the steps worth
-    zeroing are exactly the ones a shallow gauge fails on. The two columns are
-    two readings of the same outflow under the contract (`AGENTS.md`: `mrro` is
-    total runoff and `channel` holds what the routing has not released yet), so
-    where `dis` is zero and the runoff is not, the runoff is what the model says
-    moved and the step is scored on it.
+    the one reporting whether anything is. The two columns are two readings of
+    the same outflow under the contract (`AGENTS.md`: `mrro` is total runoff and
+    `channel` holds what the routing has not released yet), and `dis` is
+    preferred, so a model that reports both can otherwise decide the flow it is
+    judged by in that one column — the steps worth moving are exactly the ones a
+    shallow gauge fails on. This returns the other reading so that the larger of
+    the two is the one scored, which is what stops the discharge column being
+    written down to a passing size on its own.
 
     Returns `(q, source)` for the reading not already in use, or `(None, None)`
     when the model reports only one of them, or the case declares no area to
@@ -261,11 +277,12 @@ def froude_subcritical(run: RunResult, probe: ProbeSpec, params: dict) -> Criter
 
     Reports the share of scored steps on which Fr exceeded `1 + tolerance`,
     and fails when that share passes `max_exceed_fraction`. A step is scored
-    when water is moving through it — a non-zero reading in either flow column
-    the model reports — and its depth is one the declared section could hold, so
-    a step is excused for being dry or for being deeper than the reach and never
-    for being shallow. A record with too few scored steps is degenerate rather
-    than passing.
+    when water is moving through it — on the larger of the model's two flow
+    columns where it reports both, so that neither column is the model's to
+    write down to a passing size — and its depth is one the declared section
+    could hold, so a step is excused for being dry or for being deeper than the
+    reach and never for being shallow. A record with too few scored steps is
+    degenerate rather than passing.
     """
     stage_var = str(params.get("stage", DEFAULT_STAGE))
     width_key = str(params.get("width_key", DEFAULT_WIDTH_KEY))
@@ -366,21 +383,23 @@ def froude_subcritical(run: RunResult, probe: ProbeSpec, params: dict) -> Criter
     # sign as "nothing to score" would let a model take its worst steps out of
     # the sample by flipping them — the same move as making them shallow.
     #
-    # Where the preferred column reports exactly no flow and the model's other
-    # reading of the same outflow does, the step is scored on that reading. Only
-    # a step both readings report as still is excused. Without this a model that
-    # reports both columns picks which steps are scored: a zero in `dis` costs it
-    # nothing that this criterion can see, and the steps worth zeroing are the
-    # ones a shallow gauge fails on. Measured on `reference_shallow_rating`, the
-    # probe's own must-fail: zeroing `dis` on its supercritical steps left 144 of
-    # 1460 steps scored on the first gate seed and turned the verdict into a
-    # pass, with the runoff column still carrying every drop.
-    flow = np.abs(q)
-    n_from_second = 0
-    if q_second is not None:
-        silent = flow == 0.0
-        flow = np.where(silent, np.abs(q_second), flow)
-        n_from_second = int((silent & (flow > 0.0)).sum())
+    # Where the model reports both readings of the same outflow, the larger of
+    # them is the one scored. `dis` is preferred, and a model reporting both
+    # otherwise decides the flow it is judged by in that column: the steps worth
+    # moving are the ones a shallow gauge fails on, and a small flow there is
+    # enough to bring the pair under the limit. Zeroing `dis` is the exact form
+    # of that move — measured on `reference_shallow_rating`, the probe's own
+    # must-fail, it left 144 of 1460 steps scored on the first gate seed and
+    # turned the verdict into a pass — but it is not the only one: any factor of
+    # the column small enough does the same, so a guard written as `flow == 0`
+    # closes only the point it tests. Reading the larger of the two columns
+    # closes the whole move, because the discharge a model reports cannot then be
+    # brought below the runoff that model also reports; escaping takes a small
+    # `mrro` as well, and `mrro` is the flux every mass budget in the suite
+    # closes on. Only a step the larger reading calls still is excused.
+    flow_dis = np.abs(q)
+    second = np.abs(q_second) if q_second is not None else None
+    flow = np.maximum(flow_dis, second) if second is not None else flow_dis
 
     # A non-finite value is not a step to skip. The mask below keeps only what
     # it can compare — `NaN` is neither above zero nor below the ceiling, so both
@@ -415,6 +434,20 @@ def froude_subcritical(run: RunResult, probe: ProbeSpec, params: dict) -> Criter
     # the floor above so that every flowing step has a number to divide by.
     scored = within_section & (flow > 0.0)
     n_scored = int(scored.sum())
+    # Steps the larger reading took from the second column, counted on the mask
+    # rather than on the record so that the sentence and the diagnostic describe
+    # steps the verdict rests on and not steps the section bound has refused.
+    # The relative tolerance is there because the two columns are converted with
+    # the same constants: where a model reports the same outflow twice they agree
+    # to the rounding of that conversion and not bit for bit, so a count read off
+    # a bit-level comparison would report noise as a finding. It decides which
+    # steps the sentence counts; the value scored is the larger of the two either
+    # way, and the factor an escape needs is nine orders of magnitude wider.
+    n_from_second = (
+        int((second > flow_dis * (1.0 + FLOW_EQUAL_TOLERANCE))[scored].sum())
+        if second is not None
+        else 0
+    )
     # Steps the ceiling refused: a depth the section could not hold. Counted
     # apart from the dry ones so that the message below can say which of the two
     # bounds emptied the record.
@@ -491,14 +524,17 @@ def froude_subcritical(run: RunResult, probe: ProbeSpec, params: dict) -> Criter
             "mild-sloped reach cannot carry Fr > 1, so the stage and the "
             "discharge it reports are not two readings of the same cross-section"
         )
-    # Steps scored on the model's other reading of the same outflow are named in
-    # the message as well as counted, because the archive keeps the sentence: a
-    # verdict that rests on the runoff column where the discharge column read
-    # zero should say so rather than leave it to a diagnostic.
+    # Steps the larger reading took from the other column are named in the
+    # message as well as counted, because the archive keeps the sentence: a
+    # verdict that rests on the runoff column should say so rather than leave it
+    # to a diagnostic. The wording has to cover both shapes of that — a `dis` of
+    # exactly zero and a `dis` below the runoff — because what the sentence is
+    # for is which reading was scored, not why it was the one taken.
     if n_from_second:
         detail += (
-            f"; {n_from_second} of the scored steps report no '{DEFAULT_DISCHARGE}' "
-            f"and are read from '{second_source}', which is the same outflow"
+            f"; {n_from_second} of the scored steps are scored on "
+            f"'{second_source}', which reports more flow than "
+            f"'{DEFAULT_DISCHARGE}'"
         )
     return CriterionResult(
         name="froude_subcritical",
