@@ -106,6 +106,7 @@ Every one is binary.
 | `regime_transfer` | closure holds out of range as well as in range | labelled stretches |
 | `counterfactual_response` | added or removed water is partitioned, not absorbed; `perturbed` may name one variant or a list, each scored against the control | paired runs |
 | `invariance` | a transform the physics ignores changes nothing | paired runs |
+| `datum_flux_invariance` | a common vertical datum shift leaves groundwater exchange unchanged, with a nonzero activity guard | paired runs |
 | `resolution_invariance` | integrated volumes agree between the same weather at two steps | paired runs at different steps |
 | `response_sign` | perturb one driver both ways, hold the rest: each response must point the way physics says, by a real share of the change in demand | paired runs |
 | `causality` | nothing may change before an added storm, and runoff must answer it after | paired runs |

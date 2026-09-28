@@ -317,6 +317,7 @@ a:focus-visible,button:focus-visible{outline:2px solid var(--accent); outline-of
       <text x="296" y="336.40" class="probe" data-i18n="infra.probe.gwexchange">gw exchange</text>
       <circle cx="288" cy="341.50" r="2.4" fill="var(--pass)"/>
       <text x="296" y="345.00" class="probe" data-i18n="infra.probe.exchange">exchange</text>
+      <text x="296" y="353.60" class="probe" data-i18n="infra.probe.datum">datum</text>
       <rect x="372" y="100" width="92" height="250" rx="6" fill="var(--surface-2)"/>
       <text x="418" y="121" class="pillar" data-i18n="infra.energy" text-anchor="middle">ENERGY</text>
       <text x="418" y="138" class="note" data-i18n="infra.energy.s1" text-anchor="middle">energy budget</text>
@@ -660,6 +661,7 @@ en: {
   "infra.probe.snowpack":"snowpack",
   "infra.probe.ungauged":"ungauged",
   "infra.probe.exchange":"exchange",
+  "infra.probe.datum":"vertical datum",
   "infra.probe.gwexchange":"gw exchange",
   "infra.probe.pet":"PET demand",
   "infra.probe.latent":"latent heat",
@@ -742,6 +744,9 @@ en: {
 <tr><td class="mono">mass/extreme-rain</td><td>mass</td><td>The largest storm scaled to ten times: runoff cannot fall, nor exceed the rain added.</td><td><span class="tag merged">merged</span></td></tr>
 <tr><td class="mono">mass/runoff-bounds</td><td>mass</td><td>Over ten years, is the runoff possible at all: at least rain minus demand minus storage, at most rain plus storage? Runoff only.</td><td><span class="tag merged">merged</span></td></tr>
 <tr><td class="mono">mass/area-invariance</td><td>mass</td><td>The same weather on a ten times larger catchment: every depth identical.</td><td><span class="tag merged">merged</span></td></tr>
+<tr><td class="mono">mass/groundwater-datum-invariance</td><td class="mass">统一垂向基准平移不应改变地下水交换。</td><td class="tag merged">已合并</td></tr>
+<tr><td class="mono">mass/groundwater-datum-invariance</td><td class="mass">Un cambio común del datum vertical no cambia el intercambio subterráneo.</td><td class="tag merged">integrada</td></tr>
+<tr><td class="mono">mass/groundwater-datum-invariance</td><td class="mass">A common vertical datum shift leaves groundwater exchange unchanged.</td><td class="tag merged">merged</td></tr>
 <tr><td class="mono">mass/response-nonnegativity</td><td>mass</td><td>One storm added: from that day on, runoff may never be lower than without it.</td><td><span class="tag merged">merged</span></td></tr>
 <tr><td class="mono">mass/antecedent-monotonicity</td><td>mass</td><td>The same storm after a dry month and a wet one: more runoff from the wet one, no more than the extra water.</td><td><span class="tag merged">merged</span></td></tr>
 <tr><td class="mono">mass/phase-counterfactual</td><td>mass</td><td>The same water as rain instead of snow: timing moves, the integrated volumes do not.</td><td><span class="tag merged">merged</span></td></tr>
@@ -883,6 +888,7 @@ es: {
   "infra.probe.snowpack":"manto nival",
   "infra.probe.ungauged":"sin aforo",
   "infra.probe.exchange":"intercambio",
+  "infra.probe.datum":"datum vertical",
   "infra.probe.gwexchange":"intercambio subt.",
   "infra.probe.pet":"demanda",
   "infra.probe.latent":"calor latente",
@@ -1106,6 +1112,7 @@ zh: {
   "infra.probe.snowpack":"积雪收支",
   "infra.probe.ungauged":"无资料",
   "infra.probe.exchange":"对外交换",
+  "infra.probe.datum":"垂向基准",
   "infra.probe.gwexchange":"地下水交换",
   "infra.probe.pet":"蒸散需求",
   "infra.probe.latent":"潜热一致",
