@@ -99,6 +99,13 @@ criteria:
       # plainest way to empty the check: report the pack ripe and nothing leaving
       # it counts. A property of this case, not of snowpacks in general.
       min_opening_depression_k: 2.0
+      # The pack must open as ice: at least half the peak pack standing as ice
+      # (snw - lwsnl) on the row before the block. Nothing melts before it, and
+      # the honest packs open with 99.99 to 100% of their peak as ice and no
+      # liquid (seeds 0-19). Without it a model could report the pack liquid,
+      # or dip snw, on that one row: at zero ice the check above is skipped, and
+      # a token csnow over a token ice reads as a cold pack.
+      min_opening_ice_share: 0.5
       # Cold content cannot fall faster than energy arrives: net radiation plus
       # sensible heat from air warmer than the pack, the pack's temperature
       # coming from its own cold content and ice. W/m2/K. Snow-17 warms from the

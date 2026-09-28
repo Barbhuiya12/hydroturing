@@ -79,6 +79,12 @@ snowpacks in general.
 
 - **Non-negative.** A negative `csnow` takes its step out of the sum, and a
   negative `snm` cancels drainage inside it.
+- **The pack must open as ice.** On the row before the block, `snw - lwsnl`
+  must be at least half the peak pack. Nothing melts before the block, and the
+  honest packs open with 99.99 to 100 % of their peak as ice and no liquid.
+  Declaring the pack liquid, or dipping `snw`, on that one row would otherwise
+  let a token cold content over a token ice read as a cold pack, or at zero
+  ice skip the next check outright.
 - **The pack must open cold.** Its mean temperature on the row before the block,
   `-csnow / (c_ice * ice)` with `ice = snw - lwsnl`, must be at least 2 K below
   freezing. The air never rises above −12 °C before the block, and the honest packs

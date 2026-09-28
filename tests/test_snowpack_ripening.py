@@ -33,6 +33,7 @@ def _params(**overrides):
         "cold_content_tolerance_j": 1.0,
         "min_opening_depression_k": 2.0,
         "sensible_heat_coefficient": 10.0,
+        "min_opening_ice_share": 0.5,
     }
     params.update(overrides)
     return params
@@ -83,6 +84,8 @@ def _run(series, timestep="PT1D"):
     table = pd.DataFrame({
         "time": time, "snm": series["snm"], "snw": series["snw"], "csnow": series["csnow"],
     })
+    if "lwsnl" in series:
+        table["lwsnl"] = series["lwsnl"]
     return RunResult(case, table, {}, 0.0)
 
 
@@ -140,6 +143,29 @@ def test_a_pack_reported_ripe_on_the_opening_row_fails():
 def test_a_pack_opening_just_below_the_depression_fails_and_just_above_passes():
     assert _score(_pack(opening_k=1.9)).diagnostics.get("outcome") == "opens_ripe"
     assert _score(_pack(opening_k=2.1)).status == PASS
+
+
+def test_a_pack_reported_liquid_on_the_opening_row_fails():
+    # The degree-day leak with no cold content, and the whole pack declared
+    # liquid on the row before the block: zero ice would otherwise skip the
+    # opening check, and nothing that drains would be counted.
+    series = _pack(leak=3.0)
+    series["csnow"][:] = 0.0
+    series["lwsnl"] = np.zeros_like(series["snw"])
+    series["lwsnl"][ACCUMULATION - 1] = series["snw"][ACCUMULATION - 1]
+    result = _score(series)
+    assert result.status == FAIL
+    assert result.diagnostics["outcome"] == "opens_without_ice"
+
+
+def test_a_token_pack_on_the_opening_row_cannot_carry_a_token_cold_content():
+    # snw dips to 1 mm on that one row with a cold content that reads -20 C over
+    # it; afterwards the pack is back and reported ripe while it leaks.
+    series = _pack(leak=3.0)
+    series["csnow"][:] = 0.0
+    series["snw"][ACCUMULATION - 1] = 1.0
+    series["csnow"][ACCUMULATION - 1] = C_ICE * 1.0 * 20.0
+    assert _score(series).diagnostics["outcome"] == "opens_without_ice"
 
 
 def test_cold_content_cannot_fall_faster_than_energy_arrives():

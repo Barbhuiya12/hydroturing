@@ -50,7 +50,7 @@ from pathlib import Path
 from sacsma_snow17 import SacState, SnowState, gamma_uh, sac1, sac_storage, snow17
 
 COLUMNS = ["time", "pr", "snm", "evspsbl", "mrro", "dis", "gwex", "mrso", "snw", "canopy", "gw", "channel", "stage", "csnow"]
-MODEL = {"name": "sacsma_snow17", "version": "1.1.0"}
+MODEL = {"name": "sacsma_snow17", "version": "1.2.0"}
 LAMBDA_F = 3.337e5  # latent heat of fusion, J kg-1: 1 mm of NEGHS is this many J m-2
 STEP_HOURS = {"PT1D": 24, "PT1H": 1}
 

@@ -31,8 +31,10 @@ general:
 
 - cold content and outflow cannot be negative, either of which would take a
   step out of the sum or cancel one inside it;
-- the pack must open cold: a pack built under air that never reached freezing
-  cannot open the scored block within `min_opening_depression_k` of melting;
+- the pack must open as ice and cold: its ice on the opening row must be at
+  least `min_opening_ice_share` of the peak pack, and a pack built under air
+  that never reached freezing cannot open the scored block within
+  `min_opening_depression_k` of melting;
 - cold content cannot fall faster than energy arrives: net radiation plus
   sensible heat from air warmer than the pack, whose mean temperature follows
   from its own cold content and ice mass. Cold content carried away by ice that
@@ -68,7 +70,7 @@ _KNOWN = {
     "outflow", "pack", "liquid", "cold_content", "driver", "air_temperature",
     "precipitation", "segment_column", "scored_label", "threshold",
     "min_peak_pack_mm", "cold_content_tolerance_j", "min_opening_depression_k",
-    "sensible_heat_coefficient", "dry_tolerance_mm",
+    "sensible_heat_coefficient", "dry_tolerance_mm", "min_opening_ice_share",
 }
 
 
@@ -96,15 +98,18 @@ def snowpack_ripening(run: RunResult, probe: ProbeSpec, params: dict) -> Criteri
     min_depression = float(params.get("min_opening_depression_k", 2.0))
     k_sensible = float(params.get("sensible_heat_coefficient", 10.0))
     dry_tolerance_mm = float(params.get("dry_tolerance_mm", 1e-6))
+    min_ice_share = float(params.get("min_opening_ice_share", 0.5))
 
     # A non-finite or negative bound would disable a check rather than tighten
     # it: `.nan` compares false against everything, so it would read as passed.
-    bounds = (threshold, min_peak, c_eps, min_depression, k_sensible, dry_tolerance_mm)
+    bounds = (threshold, min_peak, c_eps, min_depression, k_sensible, dry_tolerance_mm,
+              min_ice_share)
     if not all(np.isfinite(b) and b >= 0.0 for b in bounds):
         raise ValueError(
             "snowpack_ripening needs finite, non-negative threshold, "
             "min_peak_pack_mm, cold_content_tolerance_j, min_opening_depression_k, "
-            f"sensible_heat_coefficient and dry_tolerance_mm; got {bounds}"
+            "sensible_heat_coefficient, dry_tolerance_mm and min_opening_ice_share; "
+            f"got {bounds}"
         )
 
     w = make_window(run, probe)
@@ -197,12 +202,29 @@ def snowpack_ripening(run: RunResult, probe: ProbeSpec, params: dict) -> Criteri
                          "leaving the snow module cannot be",
                          outcome="negative_outflow", block=label)
 
+        # The pack must open as ice. Nothing melts before this block, so the ice
+        # on its opening row is the pack the winter built, and every check below
+        # reads the pack's temperature through it. Reported small -- the pack
+        # declared liquid in `lwsnl`, or `snw` dipping on that one row -- it
+        # would let a token cold content read as a cold pack, or at zero skip
+        # the opening check outright, and with `csnow` zero afterwards nothing
+        # that drains is counted.
+        if ice0 < min_ice_share * peak:
+            return _fail(
+                f"the pack opens the '{label}' block with {ice0:.1f} mm of ice "
+                f"against a {peak:.0f} mm peak, under the {min_ice_share:.0%} share "
+                "a winter below freezing leaves standing: a pack reported liquid or "
+                "absent on the opening row empties the check rather than passing it",
+                outcome="opens_without_ice", block=label,
+                opening_ice_mm=ice0, peak_pack_mm=peak,
+            )
+
         # The pack must open cold. This case holds the air at or below -12 C for
         # the whole accumulation and below -14 C into the block, so a pack
         # reported within a few kelvin of melting on the opening row is a state
         # the forcing did not produce -- the plainest way to empty the sum.
-        opening_temperature = -c0 / (C_ICE * ice0) if ice0 > 1e-6 else 0.0
-        if ice0 > 1e-6 and opening_temperature > -min_depression:
+        opening_temperature = -c0 / (C_ICE * ice0)
+        if opening_temperature > -min_depression:
             return _fail(
                 f"the pack opens the '{label}' block at a mean {opening_temperature:.2f} C, "
                 f"within {min_depression:g} K of melting, after a winter the air "
