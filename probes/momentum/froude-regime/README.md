@@ -234,7 +234,7 @@ again, on all 1460 steps, with every one of those steps scored on the runoff.
 The honest records are untouched — worst Fr stays at 0.445, 0.389, 0.417 and
 0.413 over the gate seeds, and the must-fail at 1.894, to three decimals — and
 so is the archive: where a model reports one outflow in both columns the two
-readings differ by at most `4.9e-13` relative, which is the rounding of the
+readings differ by at most `8.2e-13` relative, which is the rounding of the
 mm/day conversion and not a routing difference, so no honest step is counted as
 read from the second column and the three archived `PASS` rows are byte-
 identical. That rounding is why the count carries a relative tolerance rather
