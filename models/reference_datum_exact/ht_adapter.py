@@ -6,17 +6,16 @@ COLUMNS = ["time", "gw_sw_exchange", "gw_to_sw", "sw_to_gw", "gw"]
 def simulate(forcing, static, mode="exact"):
     sy=float(static["aquifer_specific_yield"]); area=float(static["area_km2"])*1e6
     b=sy*1000.0; conductance=float(static["river_conductance_m2_per_day"])/area*1000.0
-    head=float(static["aquifer_initial_head_m"]); datum=float(static.get("datum_offset_m", 0.0)); gw=b*(head-datum)
+    head=float(static["aquifer_initial_head_m"]); bottom=float(static["aquifer_bottom_m"]); gw=b*(head-bottom)
     rows=[]
     for row in forcing:
         stage=float(row["sw_stage_m"]); recharge=float(row["gw_recharge"])
-        q=conductance*(stage-head)
         # Exact forward linear reservoir over a one-day interval.
         decay=np.exp(-conductance/b)
         equilibrium=stage + recharge/conductance if conductance else head
         new_head=equilibrium+(head-equilibrium)*decay
         q=(new_head-head-recharge/b)*b
-        gw=b*(new_head-datum); head=new_head
+        gw=b*(new_head-bottom); head=new_head
         rows.append({"time":row["time"],"gw_sw_exchange":q,"gw_to_sw":min(q,0.0),"sw_to_gw":max(q,0.0),"gw":gw})
     return rows
 def main():

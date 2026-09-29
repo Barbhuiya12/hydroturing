@@ -268,7 +268,7 @@ a:focus-visible,button:focus-visible{outline:2px solid var(--accent); outline-of
       <path d="M281 56 l6 -8 l6 8 a6 6 0 1 1 -12 0 z" fill="var(--accent)"/>
       <text x="296" y="67" class="brand">HydroTuring</text>
       <text x="417" y="86" class="note" data-i18n="infra.ht.sub" text-anchor="middle">does it conserve what physics says it must?</text>
-      <rect x="272" y="100" width="92" height="250" rx="6" fill="var(--surface-2)"/>
+      <rect x="272" y="100" width="92" height="270" rx="6" fill="var(--surface-2)"/>
       <text x="318" y="121" class="pillar" data-i18n="infra.mass" text-anchor="middle">MASS</text>
       <text x="318" y="138" class="note" data-i18n="infra.mass.s1" text-anchor="middle">water budget</text>
       <text x="318" y="151" class="note" data-i18n="infra.mass.s2" text-anchor="middle">closes</text>
@@ -317,6 +317,7 @@ a:focus-visible,button:focus-visible{outline:2px solid var(--accent); outline-of
       <text x="296" y="336.40" class="probe" data-i18n="infra.probe.gwexchange">gw exchange</text>
       <circle cx="288" cy="341.50" r="2.4" fill="var(--pass)"/>
       <text x="296" y="345.00" class="probe" data-i18n="infra.probe.exchange">exchange</text>
+      <circle cx="288" cy="350.10" r="2.4" fill="var(--pass)"/>
       <text x="296" y="353.60" class="probe" data-i18n="infra.probe.datum">datum</text>
       <rect x="372" y="100" width="92" height="250" rx="6" fill="var(--surface-2)"/>
       <text x="418" y="121" class="pillar" data-i18n="infra.energy" text-anchor="middle">ENERGY</text>
@@ -744,9 +745,7 @@ en: {
 <tr><td class="mono">mass/extreme-rain</td><td>mass</td><td>The largest storm scaled to ten times: runoff cannot fall, nor exceed the rain added.</td><td><span class="tag merged">merged</span></td></tr>
 <tr><td class="mono">mass/runoff-bounds</td><td>mass</td><td>Over ten years, is the runoff possible at all: at least rain minus demand minus storage, at most rain plus storage? Runoff only.</td><td><span class="tag merged">merged</span></td></tr>
 <tr><td class="mono">mass/area-invariance</td><td>mass</td><td>The same weather on a ten times larger catchment: every depth identical.</td><td><span class="tag merged">merged</span></td></tr>
-<tr><td class="mono">mass/groundwater-datum-invariance</td><td class="mass">统一垂向基准平移不应改变地下水交换。</td><td class="tag merged">已合并</td></tr>
-<tr><td class="mono">mass/groundwater-datum-invariance</td><td class="mass">Un cambio común del datum vertical no cambia el intercambio subterráneo.</td><td class="tag merged">integrada</td></tr>
-<tr><td class="mono">mass/groundwater-datum-invariance</td><td class="mass">A common vertical datum shift leaves groundwater exchange unchanged.</td><td class="tag merged">merged</td></tr>
+<tr><td class="mono">mass/groundwater-datum-invariance</td><td>mass</td><td>A common vertical datum shift leaves groundwater exchange unchanged.</td><td><span class="tag merged">merged</span></td></tr>
 <tr><td class="mono">mass/response-nonnegativity</td><td>mass</td><td>One storm added: from that day on, runoff may never be lower than without it.</td><td><span class="tag merged">merged</span></td></tr>
 <tr><td class="mono">mass/antecedent-monotonicity</td><td>mass</td><td>The same storm after a dry month and a wet one: more runoff from the wet one, no more than the extra water.</td><td><span class="tag merged">merged</span></td></tr>
 <tr><td class="mono">mass/phase-counterfactual</td><td>mass</td><td>The same water as rain instead of snow: timing moves, the integrated volumes do not.</td><td><span class="tag merged">merged</span></td></tr>
@@ -971,6 +970,7 @@ es: {
 <tr><td class="mono">mass/extreme-rain</td><td>masa</td><td>La mayor tormenta multiplicada por diez: la escorrentía no puede bajar ni superar la lluvia añadida.</td><td><span class="tag merged">integrada</span></td></tr>
 <tr><td class="mono">mass/runoff-bounds</td><td>masa</td><td>En diez años, ¿es posible esa escorrentía? Al menos lluvia menos demanda menos almacenamiento; a lo sumo lluvia más almacenamiento. Solo con caudal.</td><td><span class="tag merged">integrada</span></td></tr>
 <tr><td class="mono">mass/area-invariance</td><td>masa</td><td>El mismo tiempo sobre una cuenca diez veces mayor: cada lámina idéntica.</td><td><span class="tag merged">integrada</span></td></tr>
+<tr><td class="mono">mass/groundwater-datum-invariance</td><td>masa</td><td>Un cambio común del datum vertical no cambia el intercambio subterráneo.</td><td><span class="tag merged">integrada</span></td></tr>
 <tr><td class="mono">mass/response-nonnegativity</td><td>masa</td><td>Una tormenta añadida: desde ese día la escorrentía nunca puede ser menor que sin ella.</td><td><span class="tag merged">integrada</span></td></tr>
 <tr><td class="mono">mass/antecedent-monotonicity</td><td>masa</td><td>La misma tormenta tras un mes seco y tras uno húmedo: más escorrentía en el húmedo, y no más que el agua extra.</td><td><span class="tag merged">integrada</span></td></tr>
 <tr><td class="mono">mass/phase-counterfactual</td><td>masa</td><td>La misma agua como lluvia en vez de nieve: cambia el momento, no los volúmenes integrados.</td><td><span class="tag merged">integrada</span></td></tr>
@@ -1195,6 +1195,7 @@ zh: {
 <tr><td class="mono">mass/extreme-rain</td><td>质量</td><td>最大暴雨放大十倍：径流不得减少，也不得超过所加降雨。</td><td><span class="tag merged">已合并</span></td></tr>
 <tr><td class="mono">mass/runoff-bounds</td><td>质量</td><td>十年之内，这样的径流是否可能：至少为降雨减去需求再减去蓄水，至多为降雨加蓄水？仅凭径流即可判定。</td><td><span class="tag merged">已合并</span></td></tr>
 <tr><td class="mono">mass/area-invariance</td><td>质量</td><td>同样的天气，流域面积放大十倍：每一项深度都必须完全相同。</td><td><span class="tag merged">已合并</span></td></tr>
+<tr><td class="mono">mass/groundwater-datum-invariance</td><td>质量</td><td>统一垂向基准平移不应改变地下水交换。</td><td><span class="tag merged">已合并</span></td></tr>
 <tr><td class="mono">mass/response-nonnegativity</td><td>质量</td><td>加入一场暴雨：自那天起，径流在任何一天都不得低于未加雨的情形。</td><td><span class="tag merged">已合并</span></td></tr>
 <tr><td class="mono">mass/antecedent-monotonicity</td><td>质量</td><td>同一场暴雨，分别落在干月与湿月之后：湿的流域径流更多，且不超过多出的水量。</td><td><span class="tag merged">已合并</span></td></tr>
 <tr><td class="mono">mass/phase-counterfactual</td><td>质量</td><td>同样的水以雨而非雪的形式落下：时间会变，积分体积不变。</td><td><span class="tag merged">已合并</span></td></tr>

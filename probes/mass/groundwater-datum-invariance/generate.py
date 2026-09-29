@@ -12,7 +12,7 @@ STATIC = {
     "aquifer_specific_yield": 0.20,
     "aquifer_storage_coefficient": 0.002,
     "aquifer_initial_head_m": 100.0,
-    "river_conductance_m2_per_day": 100.0,
+    "river_conductance_m2_per_day": 1000.0,
     "river_bottom_offset_m": 1.0,
     "aquifer_top_m": 101.0,
     "aquifer_bottom_m": 90.0,
@@ -40,5 +40,4 @@ def generate(seed: int, variant: str = "control") -> tuple[pd.DataFrame, dict]:
     static["aquifer_initial_head_m"] += delta
     static["aquifer_top_m"] += delta
     static["aquifer_bottom_m"] += delta
-    static["datum_offset_m"] = delta
     return forcing, static

@@ -7,6 +7,16 @@ from hydroturing.spec import ProbeSpec
 
 @criterion("datum_flux_invariance", paired=True)
 def datum_flux_invariance(runs: dict[str, RunResult], probe: ProbeSpec, params: dict) -> CriterionResult:
+    """Compare exchange trajectories after a pure vertical-datum translation.
+
+    The absolute difference is summed before any sign cancellation.  The
+    allowance is a relative share of the control's gross exchange, with a
+    fixed floor for output precision.  Gross activity is checked separately:
+    a model that reports zero (or a constant bookkeeping flux) must not pass
+    merely because both datum variants agree.  ``exchange_directions`` is
+    paired with this criterion in the probe to require a real two-way stage
+    response in every variant.
+    """
     control_name = str(params.get("control", "control"))
     transformed = params.get("transformed", "transformed")
     if isinstance(transformed, str):

@@ -48,7 +48,6 @@ HEADLINES = {
     "mass/exchange-response": ("exchange_response",),
     "mass/gw-sw-exchange-consistency": ("exchange_components",),
     "mass/groundwater-datum-invariance": ("datum_flux_invariance",),
-    "mass/groundwater-datum-invariance": ("datum_flux_invariance",),
     "mass/human-abstraction": ("human_abstraction",),
     "mass/multi-decadal-drift": ("state_bounds", "total_storage_drift"),
     "mass/phase-counterfactual": ("phase_invariance",),
