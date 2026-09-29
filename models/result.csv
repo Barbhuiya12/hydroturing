@@ -750,7 +750,6 @@ run_date,model,version,suite_version,runner,probe,verdict,reason,window,seeds,de
 2026-09-29,modflow6,6.7.0-adapter.2,0.1.0,docker,mass/exchange-response,N/A,INCOMPLETE,not run,,"does not report pr, evspsbl, mrro, gwex, mrso, snw, canopy; model does not declare that it consumes forcing gwh"
 2026-09-29,modflow6,6.7.0-adapter.2,0.1.0,docker,mass/extreme-event-closure,N/A,INCOMPLETE,not run,,"does not report pr, evspsbl, mrro, mrso, snw, canopy"
 2026-09-29,modflow6,6.7.0-adapter.2,0.1.0,docker,mass/extreme-rain,N/A,INCOMPLETE,not run,,does not report mrro
-2026-09-29,modflow6,6.7.0-adapter.2,0.1.0,docker,mass/groundwater-datum-invariance,N/A,INCOMPLETE,full record,125153164 632105278 1139057392,"Docker runner unavailable on this host; result not scored."
 2026-09-29,modflow6,6.7.0-adapter.2,0.1.0,docker,mass/gw-sw-exchange-consistency,N/A,INCOMPATIBLE,not run,479803588 986755702 1493707816 2000659930 360128397,"static does not provide aquifer_top_m, aquifer_bottom_m"
 2026-09-29,modflow6,6.7.0-adapter.2,0.1.0,docker,mass/human-abstraction,N/A,INCOMPLETE,not run,,"does not report pr, evspsbl, mrro, mrso, snw, canopy"
 2026-09-29,modflow6,6.7.0-adapter.2,0.1.0,docker,mass/multi-decadal-drift,N/A,INCOMPLETE,not run,,"does not report pr, evspsbl, mrro, mrso, snw, canopy"
@@ -769,3 +768,4 @@ run_date,model,version,suite_version,runner,probe,verdict,reason,window,seeds,de
 2026-09-29,modflow6,6.7.0-adapter.2,0.1.0,docker,momentum/routing-lag-consistency,N/A,INCOMPLETE,not run,,"does not report mrro; model does not declare that it consumes forcing pr; model does not declare that it consumes static main_channel_length_km, centroid_channel_length_km"
 2026-09-29,modflow6,6.7.0-adapter.2,0.1.0,docker,momentum/stage-discharge-monotonic,N/A,INCOMPLETE,not run,,"does not report dis, channel, stage; model does not declare that it consumes static bed_elevation_m"
 2026-09-29,modflow6,6.7.0-adapter.2,0.1.0,docker,momentum/uniform-flow-friction-consistency,N/A,INCOMPLETE,not run,,"does not report dis, stage; model does not declare that it consumes static width_m, cross_section_shape, bed_elevation_m, slope, manning_n"
+2026-09-29,modflow6,6.7.0-adapter.2,0.1.0,docker,mass/groundwater-datum-invariance,PASS,OK,full record,125153164 632105278 1139057392,datum_flux_invariance: datum shift leaves gw_sw_exchange invariant (worst residual 2.095e-12 mm)
