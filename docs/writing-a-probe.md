@@ -353,6 +353,9 @@ The reference models available today:
 | `reference_leaky` | hides a silent 15% sink | `closure`, `counterfactual_response` |
 | `reference_cheater` | solves for storage as whatever balances the budget; runoff is a fixed share of rain | `state_bounds`, `response_sign`, `counterfactual_response` |
 | `reference_degenerate` | evaporates all precipitation, produces no runoff | `non_degenerate`, `counterfactual_response`, `response_sign` |
+| `reference_datum_exact` | shifts all absolute groundwater heads and elevations together while preserving hydraulic differences | `datum_flux_invariance` |
+| `reference_datum_dependent` | makes exchange depend on the numerical datum rather than hydraulic differences | `datum_flux_invariance` |
+| `reference_zero_exchange` | reports no groundwater-river exchange despite active forcing | `datum_flux_invariance` |
 | `reference_in_sample` | exact in range, leaks outside it | `regime_transfer` |
 | `reference_calendar` | recession drifts with the calendar year | `invariance` |
 | `reference_fixed_step` | treats every row as a day whatever the step is | `resolution_invariance` |

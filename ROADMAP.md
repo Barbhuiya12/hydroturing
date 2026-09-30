@@ -100,6 +100,7 @@ Over ten years, is the runoff possible at all? The mass question a runoff-only m
 ### `mass/groundwater-datum-invariance` &middot; **merged**
 
 A common translation of all absolute groundwater heads and river elevations must leave the exchange trajectory unchanged.
+Contributed by Zhenjiang Wu (Xi'an Jiaotong University).
 
 ### `mass/area-invariance` &middot; **merged**
 The same weather on a ten times larger catchment: every depth identical.
