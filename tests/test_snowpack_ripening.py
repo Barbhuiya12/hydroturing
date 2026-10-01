@@ -34,6 +34,8 @@ def _params(**overrides):
         "min_opening_depression_k": 2.0,
         "sensible_heat_coefficient": 10.0,
         "min_opening_ice_share": 0.5,
+        "pack_temperature_margin_k": 2.0,
+        "max_ground_melt_mm_per_day": 0.3,
     }
     params.update(overrides)
     return params
@@ -177,15 +179,40 @@ def test_cold_content_cannot_fall_faster_than_energy_arrives():
     assert result.diagnostics["outcome"] == "ripens_too_fast"
 
 
-def test_ice_that_leaves_takes_its_cold_content_without_counting_as_warming():
-    # Half the ice sublimates on one cold day and takes half the cold content
-    # with it, at an unchanged mean temperature: mass loss, not warming.
-    series = _pack()
+def _written_off(series, row):
+    """Cold content reported zero from `row` on, while the pack keeps leaking."""
+    series["csnow"][row:] = 0.0
+    return _score(series)
+
+
+@pytest.mark.parametrize("construction", ["liquid_one_row", "snw_dip", "liquid_throughout"])
+def test_a_reported_fall_in_ice_does_not_write_the_cold_content_off(construction):
+    # Each makes the pack's reported ice fall on the block's first row, so a
+    # credit for "ice that left" would excuse the whole deficit vanishing there.
+    # Ice that melts is at 0 C and takes no cold content with it.
+    series = _pack(leak=3.0)
     t = ACCUMULATION
-    series["snw"][t:] = series["snw"][t:] - PACK / 2
-    series["csnow"][t] = series["csnow"][t - 1] / 2
-    result = _score(series)
-    assert result.diagnostics.get("outcome") != "ripens_too_fast"
+    if construction == "liquid_one_row":
+        series["lwsnl"] = np.zeros_like(series["snw"])
+        series["lwsnl"][t] = series["snw"][t]
+    elif construction == "snw_dip":
+        series["snw"][t] = 1.0
+    else:
+        series["lwsnl"] = np.zeros_like(series["snw"])
+        series["lwsnl"][t:] = series["snw"][t:]
+    assert _written_off(series, t).diagnostics["outcome"] == "ripens_too_fast"
+
+
+def test_a_pack_reported_liquid_cannot_read_as_impossibly_cold():
+    # One row with almost no ice and its cold content kept makes the pack read
+    # millions of kelvin below freezing on the next step, and the sensible heat
+    # that follows would cover any fall. Floored at the coldest air less 2 K,
+    # the supply cannot.
+    series = _pack(leak=3.0)
+    t = ACCUMULATION
+    series["lwsnl"] = np.zeros_like(series["snw"])
+    series["lwsnl"][t] = series["snw"][t] - 1e-7
+    assert _written_off(series, t + 1).diagnostics["outcome"] == "ripens_too_fast"
 
 
 def test_negative_cold_content_and_negative_outflow_fail():
@@ -204,6 +231,18 @@ def test_a_thin_pack_is_refused_rather_than_scored():
     series["snw"] = series["snw"] * 0.2          # 100 mm: ground melt would read as a leak
     with pytest.raises(CriterionIncompatibleError, match="300 mm"):
         _score(series)
+
+
+def test_a_thin_pack_that_leaks_beyond_ground_melt_is_still_failed():
+    # The same pack at a fifth of the size, leaking 3 mm/day while cold: 33 mm
+    # against the 3.3 mm that 0.3 mm/day of ground melt over eleven cold days
+    # could explain. The floor exists for ground melt, not for this.
+    series = _pack(leak=3.0)
+    series["snw"] = series["snw"] * 0.2
+    series["csnow"] = series["csnow"] * 0.2
+    result = _score(series)
+    assert result.status == FAIL
+    assert result.value == pytest.approx(33.0 / (PACK * 0.2))
 
 
 def test_a_wet_block_is_refused():

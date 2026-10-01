@@ -37,11 +37,17 @@ general:
   `min_opening_depression_k` of melting;
 - cold content cannot fall faster than energy arrives: net radiation plus
   sensible heat from air warmer than the pack, whose mean temperature follows
-  from its own cold content and ice mass. Cold content carried away by ice that
-  leaves is credited, since that is mass loss rather than warming;
+  from its own cold content and ice mass, floored at the coldest air in the
+  record less `pack_temperature_margin_k`. No fall is credited to ice leaving,
+  because ice that melts is at 0 C and carries no cold content. This bounds a
+  single step's fall, not a steady one: a cold content written down at the
+  bound's own rate from the opening row reaches zero weeks before an honest
+  pack ripens (see the probe README);
 - a pack under `min_peak_pack_mm` is refused, because melt at the snow-ground
   interface drains however cold the pack is and is fixed per day rather than
-  proportional to the pack, so on a thin pack it would read as a violation.
+  proportional to the pack, so on a thin pack it would read as a violation --
+  unless more left while cold than `max_ground_melt_mm_per_day` over the cold
+  days could explain, in which case the failure stands.
 """
 
 from __future__ import annotations
@@ -71,6 +77,7 @@ _KNOWN = {
     "precipitation", "segment_column", "scored_label", "threshold",
     "min_peak_pack_mm", "cold_content_tolerance_j", "min_opening_depression_k",
     "sensible_heat_coefficient", "dry_tolerance_mm", "min_opening_ice_share",
+    "pack_temperature_margin_k", "max_ground_melt_mm_per_day",
 }
 
 
@@ -99,16 +106,19 @@ def snowpack_ripening(run: RunResult, probe: ProbeSpec, params: dict) -> Criteri
     k_sensible = float(params.get("sensible_heat_coefficient", 10.0))
     dry_tolerance_mm = float(params.get("dry_tolerance_mm", 1e-6))
     min_ice_share = float(params.get("min_opening_ice_share", 0.5))
+    t_margin = float(params.get("pack_temperature_margin_k", 2.0))
+    ground_melt = float(params.get("max_ground_melt_mm_per_day", 0.3))
 
     # A non-finite or negative bound would disable a check rather than tighten
     # it: `.nan` compares false against everything, so it would read as passed.
     bounds = (threshold, min_peak, c_eps, min_depression, k_sensible, dry_tolerance_mm,
-              min_ice_share)
+              min_ice_share, t_margin, ground_melt)
     if not all(np.isfinite(b) and b >= 0.0 for b in bounds):
         raise ValueError(
             "snowpack_ripening needs finite, non-negative threshold, "
             "min_peak_pack_mm, cold_content_tolerance_j, min_opening_depression_k, "
-            "sensible_heat_coefficient, dry_tolerance_mm and min_opening_ice_share; "
+            "sensible_heat_coefficient, dry_tolerance_mm, min_opening_ice_share, "
+            "pack_temperature_margin_k and max_ground_melt_mm_per_day; "
             f"got {bounds}"
         )
 
@@ -166,13 +176,14 @@ def snowpack_ripening(run: RunResult, probe: ProbeSpec, params: dict) -> Criteri
 
     last = max(stop for _, _, stop in scored)
     peak = float(snw[:last].max()) if last else 0.0
-    if peak < min_peak:
-        raise CriterionIncompatibleError(
-            f"the pack peaks at {peak:.1f} mm, under the {min_peak:g} mm this "
-            "criterion needs: melt at the snow-ground interface drains however "
-            "cold the pack is and does not scale with it, so on a thinner pack it "
-            "would be scored as a violation"
-        )
+    if peak <= 0.0:
+        raise CriterionIncompatibleError("the model reports no snowpack to ripen")
+    # No pack in this case is colder than the coldest air it was built under,
+    # less a margin: the honest packs stay above it. The supply bound reads the
+    # pack's temperature from its own cold content and ice, so without this a
+    # pack reported as almost all liquid for one row would read as impossibly
+    # cold, and the sensible heat that follows would cover any fall at all.
+    t_floor = float(tas[:last].min()) - t_margin
 
     blocks = []
     for label, start, stop in scored:
@@ -237,14 +248,15 @@ def snowpack_ripening(run: RunResult, probe: ProbeSpec, params: dict) -> Criteri
         # Cold content cannot fall faster than energy arrives. What reaches the
         # pack in a step is at most the net radiation plus sensible heat from air
         # warmer than the pack; the pack's temperature comes from its own cold
-        # content and ice. Ice that leaves takes its cold content with it, and
-        # that fall is mass loss, not warming, so it is credited.
+        # content and ice, floored as above. No fall is credited to ice leaving:
+        # ice that melts is at 0 C and takes no cold content with it, and a
+        # credit for a fall in *reported* ice would let one row declared liquid,
+        # or one dip in `snw`, write the whole deficit off.
         ice_safe = np.maximum(ice_open, 1e-6)
-        t_pack = -c_open / (C_ICE * ice_safe)
+        t_pack = np.maximum(-c_open / (C_ICE * ice_safe), t_floor)
         supply = (np.maximum(rn[start:stop], 0.0)
                   + k_sensible * np.maximum(tas[start:stop] - t_pack, 0.0)) * dt_seconds
-        carried = c_open * np.clip((ice_open - ice_end) / ice_safe, 0.0, 1.0)
-        warming = c_open - c_end - carried
+        warming = c_open - c_end
         excess = warming - supply
         worst_rate = int(np.argmax(excess))
         if excess[worst_rate] > c_eps:
@@ -268,6 +280,7 @@ def snowpack_ripening(run: RunResult, probe: ProbeSpec, params: dict) -> Criteri
         cold = c_end > c_eps
         leaked = float(qb[cold].sum())
         share = leaked / peak
+        ground_melt_mm = ground_melt * float(cold.sum()) * w.dt_days
         blocks.append({
             "label": label,
             "outflow_while_cold_mm": leaked,
@@ -280,10 +293,26 @@ def snowpack_ripening(run: RunResult, probe: ProbeSpec, params: dict) -> Criteri
             "worst_warming_share_of_supply": float(
                 (warming / np.maximum(supply, 1.0)).max()
             ),
+            "ground_melt_allowance_mm": ground_melt_mm,
         })
 
     worst = max(blocks, key=lambda b: b["share_of_peak_pack"])
     ok = worst["share_of_peak_pack"] <= threshold
+    # Melt at the snow-ground interface drains however cold the pack is and is
+    # fixed per day, not proportional to the pack, so on a thin pack the share
+    # it makes could fail an honest model. Below the floor the pack is refused
+    # -- unless what left while it was cold is more than that ground melt could
+    # be, in which case the failure is measured and stands. A refusal may cost
+    # a pass; it never buys one.
+    if peak < min_peak and (ok or worst["outflow_while_cold_mm"] <= worst["ground_melt_allowance_mm"]):
+        raise CriterionIncompatibleError(
+            f"the pack peaks at {peak:.1f} mm, under the {min_peak:g} mm this "
+            "criterion needs, and the "
+            f"{worst['outflow_while_cold_mm']:.1f} mm that left it while cold fits "
+            f"within {ground_melt:g} mm/day of ground melt over its cold days: melt "
+            "at the snow-ground interface drains however cold the pack is, so on a "
+            "pack this thin it cannot be told from a leak"
+        )
     return CriterionResult(
         name="snowpack_ripening",
         status=PASS if ok else FAIL,

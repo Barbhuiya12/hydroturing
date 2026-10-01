@@ -5,9 +5,10 @@ description: >
   every row: `csnow` is zero throughout, though the pack melts and drains on
   air temperature while it is still cold. A check that counts only water
   leaving a pack that holds cold content has nothing to count here, so the
-  model exists to show that energy/snowpack-ripening does not rest on a model's
-  own report of its cold content alone -- a pack built under a winter that
-  never reached freezing cannot open the melt block ripe.
+  model exists to show that energy/snowpack-ripening catches the plainest way
+  to empty its sum: a pack built under a winter that never reached freezing
+  cannot open the melt block ripe. It does not show more than that; a cold
+  content written down gradually is the stated limit in the probe's Scope.
 authors: ["HydroTuring maintainers"]
 license: PolyForm-Noncommercial-1.0.0
 runner: subprocess

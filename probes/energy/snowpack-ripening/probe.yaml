@@ -85,16 +85,23 @@ criteria:
       # to 0.3 mm/day in mild climates with deep snow. At 0.3 over the longest
       # cold stretch this case produces, 47 days, a pack releases 14.1 mm while
       # cold, inside five percent only above 282 mm. A thinner pack is refused
-      # rather than scored. This case's smallest peak pack over seeds 0-199 is
+      # rather than scored -- unless what left it while cold is more than that
+      # ground melt could be (max_ground_melt_mm_per_day below), in which case
+      # the failure is measured and stands. This case's smallest peak pack over
+      # seeds 0-199 is
       # 621.6 mm and its median 843 mm, so at its own sizes the rule covers
       # DAYGM up to 0.66 mm/day, over twice the documented range.
       min_peak_pack_mm: 300.0
+      # NWS's upper DAYGM, the ground melt a thin pack is excused for: below the
+      # floor, a pack is refused only while what left it while cold fits inside
+      # this rate over its cold days.
+      max_ground_melt_mm_per_day: 0.3
       # The cold content below which a pack counts as ripe, J/m2: the tolerance
       # energy/snowmelt-energy-water uses for the same variable.
       cold_content_tolerance_j: 1.0
       # The pack must open cold. The air stays at or below -12 C through the
       # whole accumulation and below -14 C into the block, and the honest packs
-      # open at a mean -16.3 to -24.0 C. A pack reported within 2 K of melting on
+      # open at a mean -15.9 to -24.0 C. A pack reported within 2 K of melting on
       # the opening row is a state this forcing did not produce, and it is the
       # plainest way to empty the check: report the pack ripe and nothing leaving
       # it counts. A property of this case, not of snowpacks in general.
@@ -114,8 +121,18 @@ criteria:
       # 1459 of them. 10 is what a bulk coefficient rho c_p C_H U gives at about
       # 4 m/s, leaving it 2.3 times of room, and a model that reports its true
       # cold content on the opening row and none the next needs 5.2 to 73 times
-      # the bound.
+      # the bound. That is all it stops: a single step's fall. A cold content
+      # written down at the bound's own rate from the opening row reaches zero
+      # weeks before an honest pack would ripen, and is covered by the stated
+      # limit in the README's Scope, not by this bound. No fall is credited to
+      # ice leaving: ice that melts is at 0 C and carries no cold content.
       sensible_heat_coefficient: 10.0
+      # The pack temperature the bound reads is floored at the coldest air in
+      # the record less this margin. The honest packs never go below that air
+      # (closest 0.08 K above it, seeds 0-19). Without the floor, one row with
+      # the pack declared nearly all liquid reads as impossibly cold, and the
+      # sensible heat that follows would cover any fall.
+      pack_temperature_margin_k: 2.0
 
 baselines:
   # The energy-balance pack pays its cold content before it melts, and drains

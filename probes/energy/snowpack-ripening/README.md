@@ -67,7 +67,10 @@ the pack, so the share it makes depends on the pack's size. NWS documents
 `DAYGM` from 0.0 mm/day, where the ground freezes, to 0.3 mm/day in mild
 climates with deep snow. At 0.3 mm/day over the longest cold stretch this case
 produces, 47 days, a pack releases 14.1 mm while cold, which is inside 5 %
-only above 282 mm. A thinner pack is refused as N/A rather than scored. This
+only above 282 mm. A thinner pack is refused as N/A rather than scored, unless
+more left it while cold than 0.3 mm/day over its cold days could explain: then
+the failure is measured, not inferred, and it stands. A refusal may cost a pass
+but never buys one. This
 case's smallest peak over seeds 0–199 is 621.6 mm, so at its own sizes the rule
 covers `DAYGM` up to 0.66 mm/day, over twice the documented range.
 
@@ -93,14 +96,19 @@ snowpacks in general.
 - **Cold content cannot fall faster than energy arrives.** Per step, the fall in
   `csnow` must not exceed net radiation plus sensible heat from air warmer than
   the pack, `[max(0, rn) + K * max(0, tas - T_pack)] * dt`, with the pack's
-  temperature taken from its own cold content and ice. Cold content carried
-  away by ice that leaves is credited, since that is mass loss rather than
-  warming. `K = 10 W m-2 K-1` is what a bulk coefficient `rho c_p C_H U` gives
+  temperature taken from its own cold content and ice and floored at the
+  coldest air in the record less 2 K. The honest packs never go below that air.
+  The floor stops one row with the pack declared almost all liquid from reading
+  as impossibly cold and buying unlimited sensible heat. No fall is credited to
+  ice leaving: ice that melts is at 0 °C and carries no cold content, and a
+  credit for a fall in *reported* ice would let one edited row write the whole
+  deficit off. `K = 10 W m-2 K-1` is what a bulk coefficient `rho c_p C_H U` gives
   at about 4 m/s. Snow-17 warms from the air rather than from radiation and
   needs at most 4.28 over every warming step of seeds 0–39. A bound on
   radiation alone would fail it on 111 of 1459 steps. A model that reports its
   true cold content on the opening row and none on the next needs 5.2 to 73
-  times the bound.
+  times the bound. That is what the bound stops, and only that: a **single
+  step's** fall. A gradual write-down is the limit in *Scope*, item 1.
 
 ## What it catches
 
@@ -121,8 +129,8 @@ energy-balance pack at 0 %, and `reference_always_ripe` refused as `opens_ripe`
 on every seed.
 
 `reference_degree_day` melts on air temperature whatever its cold content, so
-water leaves on all 60 steps of the block while its own `csnow` says the pack
-is still 17 K below freezing. This is the construction the probe exists to
+water leaves on the last 17 to 23 of the block's 60 steps while its own `csnow`
+says the pack is still well below freezing. This is the construction the probe exists to
 catch. `reference_always_ripe` is the same pack reporting `csnow = 0`
 throughout, so the sum has nothing to count. It is caught because it opens the
 block ripe after a winter that never reached freezing.
@@ -148,7 +156,13 @@ What this probe does **not** test:
    this case's winter the pack could absorb 127 to 276 MJ m-2 of radiant energy
    against 24 to 41 MJ m-2 of cold brought in by snowfall, so the forcing admits
    almost any cold content. Only a surface energy balance pins it, which
-   `energy/snowmelt-energy-water` carries for models that report one.
+   `energy/snowmelt-energy-water` carries for models that report one. The
+   supply bound does not change this. It stops a cold content dropped in one
+   step, not one written down gradually: `reference_degree_day`'s cold content,
+   written down at 99 % of the bound's own rate from the opening row, reaches
+   zero on block day 12 to 24, and the pack first drains on day 38 to 44 (seeds 0–199). So
+   in this case two to four weeks of write-down fit inside the bound, and
+   that construction passes.
 2. **Preferential flow.** Real packs can release water through flow fingers
    before the bulk has ripened (Wever et al., 2016). A model that represents
    this will report outflow while cold. The 5 % allowance absorbs a little of
