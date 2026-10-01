@@ -760,8 +760,8 @@ run_date,model,version,suite_version,runner,probe,verdict,reason,window,seeds,de
 2026-10-01,modflow6,6.7.0-adapter.2,0.1.0,docker,mass/exchange-response,N/A,INCOMPLETE,not run,,"does not report pr, evspsbl, mrro, gwex, mrso, snw, canopy; model does not declare that it consumes forcing gwh"
 2026-10-01,modflow6,6.7.0-adapter.2,0.1.0,docker,mass/extreme-event-closure,N/A,INCOMPLETE,not run,,"does not report pr, evspsbl, mrro, mrso, snw, canopy"
 2026-10-01,modflow6,6.7.0-adapter.2,0.1.0,docker,mass/extreme-rain,N/A,INCOMPLETE,not run,,does not report mrro
-2026-10-01,modflow6,6.7.0-adapter.2,0.1.0,docker,mass/groundwater-datum-invariance,PASS,OK,full record,1661374825 758981048 1025883262,datum_flux_invariance: datum shift leaves gw_sw_exchange invariant (worst residual 1.703e-12 mm)
-2026-10-01,modflow6,6.7.0-adapter.2,0.1.0,docker,mass/gw-sw-exchange-consistency,PASS,OK,full record,869983655 1306043967 1213035078 1066545034 1602172245,exchange_components: directional exchange components sum to gw_sw_exchange
+2026-10-01,modflow6,6.7.0-adapter.2,0.1.0,docker,mass/groundwater-datum-invariance,PASS,OK,full record,125153164 632105278 1139057392,datum_flux_invariance: datum shift leaves gw_sw_exchange invariant (worst residual 2.095e-12 mm)
+2026-10-01,modflow6,6.7.0-adapter.2,0.1.0,docker,mass/gw-sw-exchange-consistency,PASS,OK,full record,479803588 986755702 1493707816 2000659930 360128397,exchange_components: directional exchange components sum to gw_sw_exchange
 2026-10-01,modflow6,6.7.0-adapter.2,0.1.0,docker,mass/human-abstraction,N/A,INCOMPLETE,not run,,"does not report pr, evspsbl, mrro, mrso, snw, canopy"
 2026-10-01,modflow6,6.7.0-adapter.2,0.1.0,docker,mass/multi-decadal-drift,N/A,INCOMPLETE,not run,,"does not report pr, evspsbl, mrro, mrso, snw, canopy"
 2026-10-01,modflow6,6.7.0-adapter.2,0.1.0,docker,mass/phase-counterfactual,N/A,INCOMPLETE,not run,,does not report mrro
