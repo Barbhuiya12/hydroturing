@@ -106,6 +106,7 @@ Every one is binary.
 | `regime_transfer` | closure holds out of range as well as in range | labelled stretches |
 | `counterfactual_response` | added or removed water is partitioned, not absorbed; `perturbed` may name one variant or a list, each scored against the control | paired runs |
 | `invariance` | a transform the physics ignores changes nothing | paired runs |
+| `datum_flux_invariance` | a common vertical datum shift leaves groundwater exchange unchanged, with a nonzero activity guard | paired runs |
 | `resolution_invariance` | integrated volumes agree between the same weather at two steps | paired runs at different steps |
 | `response_sign` | perturb one driver both ways, hold the rest: each response must point the way physics says, by a real share of the change in demand | paired runs |
 | `causality` | nothing may change before an added storm, and runoff must answer it after | paired runs |
@@ -353,6 +354,9 @@ The reference models available today:
 | `reference_leaky` | hides a silent 15% sink | `closure`, `counterfactual_response` |
 | `reference_cheater` | solves for storage as whatever balances the budget; runoff is a fixed share of rain | `state_bounds`, `response_sign`, `counterfactual_response` |
 | `reference_degenerate` | evaporates all precipitation, produces no runoff | `non_degenerate`, `counterfactual_response`, `response_sign` |
+| `reference_datum_exact` | shifts all absolute groundwater heads and elevations together while preserving hydraulic differences | `datum_flux_invariance` |
+| `reference_datum_dependent` | makes exchange depend on the numerical datum rather than hydraulic differences | `datum_flux_invariance` |
+| `reference_zero_exchange` | reports no groundwater-river exchange despite active forcing | `datum_flux_invariance` |
 | `reference_in_sample` | exact in range, leaks outside it | `regime_transfer` |
 | `reference_calendar` | recession drifts with the calendar year | `invariance` |
 | `reference_fixed_step` | treats every row as a day whatever the step is | `resolution_invariance` |
