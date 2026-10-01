@@ -213,6 +213,22 @@ figure svg.pie{width:200px; height:200px; flex:none; overflow:visible}
 .cell:hover .track,.cell:focus-visible .track{filter:brightness(1.08)}
 .cell:focus-visible{box-shadow:0 0 0 2px var(--ink)}
 .legend .swatches{display:inline-flex; gap:2px}
+/* The probes and models tables fold behind a summary row; the charts above them are the overview. */
+.table-toggle{margin:0 0 18px}
+.table-toggle > summary{display:flex; align-items:center; gap:12px; cursor:pointer; list-style:none; padding:13px 18px;
+  border:1px solid var(--line); border-radius:10px; background:var(--surface); box-shadow:var(--shadow);
+  font-size:14.5px; font-weight:600; color:var(--ink)}
+.table-toggle > summary::-webkit-details-marker{display:none}
+.table-toggle > summary::before{content:""; flex:none; width:7px; height:7px; margin:0 2px 2px 0;
+  border-right:2px solid var(--accent); border-bottom:2px solid var(--accent); transform:rotate(-45deg); transition:transform .15s}
+.table-toggle[open] > summary::before{transform:rotate(45deg); margin-bottom:4px}
+.table-toggle > summary:hover{background:var(--surface-2)}
+.table-toggle > summary:focus-visible{outline:2px solid var(--accent); outline-offset:2px}
+.table-toggle[open] > summary{border-radius:10px 10px 0 0; border-bottom-color:transparent; box-shadow:none}
+.table-toggle > .tablewrap{margin:0; border-radius:0 0 10px 10px}
+.table-toggle .toggle-hint{margin-left:auto; font-size:13px; font-weight:400; color:var(--accent); white-space:nowrap}
+.table-toggle .when-open,.table-toggle[open] .when-closed{display:none}
+.table-toggle[open] .when-open{display:inline}
 .chart-note{margin:12px 0 0; font-size:13.5px; color:var(--muted); max-width:44em}
 .chart-data{margin-top:12px}
 .chart-data summary{cursor:pointer; font-size:13.5px; color:var(--accent)}
@@ -559,6 +575,8 @@ google_flood_forecast v0.1.0-828dfc5  -&gt;  ❌ FAIL (VIOLATION)  [2/6 probes p
       </div>
       <div class="viz-tip" hidden></div>
     </figure>
+    <details class="table-toggle" id="probes-table">
+      <summary><span class="toggle-label" data-toggle="probes"></span><span class="toggle-hint"><span class="when-closed" data-i18n="table.show">Show</span><span class="when-open" data-i18n="table.hide">Hide</span></span></summary>
     <div class="tablewrap">
       <table>
         <thead><tr>
@@ -570,6 +588,7 @@ google_flood_forecast v0.1.0-828dfc5  -&gt;  ❌ FAIL (VIOLATION)  [2/6 probes p
         <tbody data-i18n-html="probes.rows"></tbody>
       </table>
     </div>
+    </details>
     <div data-i18n-html="probes.legend"></div>
   </div>
 </section>
@@ -589,6 +608,8 @@ google_flood_forecast v0.1.0-828dfc5  -&gt;  ❌ FAIL (VIOLATION)  [2/6 probes p
       </details>
       <div class="viz-tip" hidden></div>
     </figure>
+    <details class="table-toggle" id="models-table">
+      <summary><span class="toggle-label" data-toggle="models"></span><span class="toggle-hint"><span class="when-closed" data-i18n="table.show">Show</span><span class="when-open" data-i18n="table.hide">Hide</span></span></summary>
     <div class="tablewrap">
       <table>
         <thead><tr>
@@ -601,6 +622,7 @@ google_flood_forecast v0.1.0-828dfc5  -&gt;  ❌ FAIL (VIOLATION)  [2/6 probes p
         <tbody data-i18n-html="models.rows"></tbody>
       </table>
     </div>
+    </details>
     <div data-i18n-html="models.legend"></div>
   </div>
 </section>
@@ -820,6 +842,10 @@ en: {
   "models.th5":"Verdict",
   "models.intro":"<p>Every model that has been run against the suite. A submitted model is evaluated in an isolated container on a flood-event window of each probe's generated record. A physical model is one the acceptance gate requires every probe to pass; it is evaluated the same way, and a probe that fails one is examined before the model is.</p><p>The standings of dhbv2, wflow_sbm, summa, cwatm and lisflood now include mass/extreme-event-closure: lisflood passes it, and dhbv2, wflow_sbm, summa and cwatm fail it.</p>",
   "models.legend":"<p>Every evaluation is appended to <a href=\"https://github.com/Flood-Lab/HydroTuring/blob/main/models/result.csv\">models/result.csv</a>, with the probe, the window, the seeds and the worst criterion. Each verdict is PASS, FAIL or N/A, with its reason; the numbers under it are in the archive and in each model's README. The <em>Probes passed</em> column counts passes out of the probes that could be scored on that model: a probe it does not report enough for, or cannot consume, is N/A and left out, so the totals differ between models. To submit a model, open a <a href=\"https://github.com/Flood-Lab/HydroTuring/issues/new?template=model_submission.yml\">model submission</a>.</p>",
+  "probes.toggle":"Probe table: {m} merged, {o} on the roadmap",
+  "models.toggle":"Model table: {n} models, what each one is and its verdict",
+  "table.show":"Show",
+  "table.hide":"Hide",
   "law.mass":"Mass",
   "law.energy":"Energy",
   "law.momentum":"Momentum",
@@ -1060,6 +1086,10 @@ es: {
   "models.th5":"Veredicto",
   "models.intro":"<p>Todos los modelos que se han ejecutado contra la batería. Un modelo enviado se evalúa en un contenedor aislado sobre una ventana de crecida del registro generado de cada prueba. Un modelo físico es uno que la compuerta de aceptación exige que toda prueba supere; se evalúa igual, y una prueba que lo falla se examina antes que el modelo.</p><p>Las cifras de dhbv2, wflow_sbm, summa, cwatm y lisflood ya incluyen mass/extreme-event-closure: lisflood la supera, y dhbv2, wflow_sbm, summa y cwatm la fallan.</p>",
   "models.legend":"<p>Cada evaluación se añade a <a href=\"https://github.com/Flood-Lab/HydroTuring/blob/main/models/result.csv\">models/result.csv</a>, con la prueba, la ventana, las semillas y el peor criterio. Cada veredicto es PASS, FAIL o N/A, con su razón; los números están en el archivo y en el README de cada modelo. La columna <em>Pruebas superadas</em> cuenta los aprobados entre las pruebas que pudieron puntuarse en ese modelo: una para la que el modelo no informa lo suficiente, o que no se le puede aplicar, es N/A y queda fuera, así que los totales difieren entre modelos. Para enviar un modelo, abre un <a href=\"https://github.com/Flood-Lab/HydroTuring/issues/new?template=model_submission.yml\">envío de modelo</a>.</p>",
+  "probes.toggle":"Tabla de pruebas: {m} integradas, {o} en la hoja de ruta",
+  "models.toggle":"Tabla de modelos: {n} modelos, qué es cada uno y su veredicto",
+  "table.show":"Mostrar",
+  "table.hide":"Ocultar",
   "law.mass":"Masa",
   "law.energy":"Energía",
   "law.momentum":"Momento",
@@ -1300,6 +1330,10 @@ zh: {
   "models.th5":"结论",
   "models.intro":"<p>所有已在本套件上运行过的模型。提交模型在隔离容器中，于每个检验项生成记录的洪水事件窗口上评估。物理模型是验收闸门要求每个检验项都必须通过的模型，以同样方式评估；若某检验项未能通过物理模型，先检查检验项，再检查模型。</p><p>dhbv2、wflow_sbm、summa、cwatm 和 lisflood 的成绩现已计入 mass/extreme-event-closure：lisflood 通过，dhbv2、wflow_sbm、summa 和 cwatm 未通过。</p>",
   "models.legend":"<p>每次评估都会追加到 <a href=\"https://github.com/Flood-Lab/HydroTuring/blob/main/models/result.csv\">models/result.csv</a>，记录检验项、窗口、种子与最差准则。每项结论为 PASS、FAIL 或 N/A，并附原因；其下的数字在归档和各模型的 README 中。「通过检验项」一栏只在能对该模型计分的检验项中计数：模型上报的信息不足、或无法施加于该模型的检验项记为 N/A，不计入，因此各模型的总数不同。提交模型请打开<a href=\"https://github.com/Flood-Lab/HydroTuring/issues/new?template=model_submission.yml\">模型提交</a>。</p>",
+  "probes.toggle":"检验项一览：已合并 {m} 项，路线图上 {o} 项",
+  "models.toggle":"模型一览：{n} 个模型的简介与结论",
+  "table.show":"展开",
+  "table.hide":"收起",
   "law.mass":"质量",
   "law.energy":"能量",
   "law.momentum":"动量",
@@ -1690,6 +1724,18 @@ function renderBars(dict) {
   });
 }
 
+// The summary rows of the folded tables carry their counts, read off the rendered rows.
+function renderToggles(dict) {
+  const probes = document.querySelectorAll('tbody[data-i18n-html="probes.rows"] tr');
+  const merged = document.querySelectorAll('tbody[data-i18n-html="probes.rows"] .tag.merged').length;
+  const models = document.querySelectorAll('tbody[data-i18n-html="models.rows"] tr').length;
+  const counts = { probes: { m: merged, o: probes.length - merged, n: probes.length }, models: { n: models } };
+  for (const label of document.querySelectorAll(".toggle-label[data-toggle]")) {
+    const key = label.dataset.toggle;
+    label.textContent = fill(dict[key + ".toggle"] || "", counts[key] || {});
+  }
+}
+
 let chartDict = null;
 function renderCharts(dict) {
   chartDict = dict;
@@ -1716,6 +1762,7 @@ function applyLang(lang) {
   for (const button of document.querySelectorAll(".langs button")) {
     button.setAttribute("aria-pressed", String(button.dataset.lang === lang));
   }
+  renderToggles(dict);
   renderCharts(dict);
   try { localStorage.setItem("hydroturing.lang", lang); } catch (e) { /* ignore */ }
 }
