@@ -1466,12 +1466,15 @@ function svgEl(tag, attrs) {
   return node;
 }
 
-// White or ink, whichever clears the filled color better, for a label set inside a fill.
+// White or black, whichever clears the filled color better, for a label set
+// inside a fill. Against white and true black one of the two always reaches
+// 4.5:1 (WCAG AA for the 14px count); the site's ink is lighter than black and
+// would leave mid-tones such as the light-mode mass blue short of it with both.
 function inkOn(node) {
   const rgb = (getComputedStyle(node).fill.match(/\d+(\.\d+)?/g) || [0, 0, 0]).slice(0, 3).map(Number);
   const lin = rgb.map((c) => { c /= 255; return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4; });
   const lum = 0.2126 * lin[0] + 0.7152 * lin[1] + 0.0722 * lin[2];
-  return (1.05 / (lum + 0.05)) >= ((lum + 0.05) / 0.0617) ? "#FFFFFF" : "#0F1B21";
+  return (1.05 / (lum + 0.05)) >= ((lum + 0.05) / 0.05) ? "#FFFFFF" : "#000000";
 }
 
 function tooltip(figure) {
