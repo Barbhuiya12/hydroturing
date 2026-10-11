@@ -10,6 +10,10 @@ Snow-17 routes its outflow (Anderson, 2006): water reaching a pack that still
 carries `NEGHS` goes back into the ice, and only the excess over the deficit
 and the liquid-holding capacity leaves.
 
+That is the bulk, or matrix-flow, picture of a snowpack, and the probe is a check
+of that picture and not of every way a model may move water through snow. A
+model that represents preferential flow is outside it; see *Applicability*.
+
 The probe holds the water a model reports leaving its snow module, `snm`, to
 the cold content the same model reports, `csnow`:
 
@@ -53,6 +57,23 @@ forcing means "consume it or be N/A". Requiring `rn` would make exactly the
 temperature-index models this probe exists to reach N/A, since Snow-17 declares
 `needs_forcing: [pr, tas, pet]`.
 
+## Applicability
+
+Eligibility here is set by what a model reports (`snm`, `snw`, `csnow`) and not
+by how it transports water. A model that represents preferential flow, water
+moving through flow fingers before the bulk of the pack has ripened (Wever et
+al., 2016), can drain a pack whose bulk cold content is positive by design, and
+would read here as drainage from a pack that had not ripened. That is a
+difference in the process assumed, not a violation of conservation.
+
+No model that reports `snm` and `csnow` represents preferential flow today:
+Snow-17, the energy-balance reference and the two broken references all route
+matrix flow. If one is submitted, whether it is scored here is a maintainer
+decision to take on its proposal issue before its rows are archived, because
+the harness would otherwise record the exceedance as FAIL (VIOLATION). The
+probe adds no declaration for it. A flag a model sets for itself is a way out
+of the check, and the decision should be what sets it.
+
 ## Tolerance
 
 **5 percent of the peak pack.** Not zero, because melt at the snow-ground
@@ -82,6 +103,14 @@ snowpacks in general.
 
 - **Non-negative.** A negative `csnow` takes its step out of the sum, and a
   negative `snm` cancels drainage inside it.
+- **A reported liquid column has to be a number inside the pack.** `lwsnl` is
+  optional, so nothing upstream validates it, and it sets the ice the pack's
+  temperature is read through. Reported, it must be finite on every row and
+  between 0 and `snw` (within `liquid_tolerance_mm`, 10^-6 mm). Absent still
+  means no liquid. Without this, one blank cell made the supply bound below
+  select a NaN and skip itself, and a write-off that fails as `ripens_too_fast`
+  passed. The bound's own result is also checked for NaN, so a bad value in the
+  case's forcing cannot do the same.
 - **The pack must open as ice.** On the row before the block, `snw - lwsnl`
   must be at least half the peak pack. Nothing melts before the block, and the
   honest packs open with 99.99 to 100 % of their peak as ice and no liquid.
@@ -162,15 +191,22 @@ What this probe does **not** test:
    written down at 99 % of the bound's own rate from the opening row, reaches
    zero on block day 12 to 24, and the pack first drains on day 38 to 44 (seeds 0–199). So
    in this case two to four weeks of write-down fit inside the bound, and
-   that construction passes.
+   that construction passes. `test_a_cold_content_written_down_inside_the_energy_supply_still_passes`
+   keeps it as a reproducible example, so the limit cannot drift into a claim.
 2. **Preferential flow.** Real packs can release water through flow fingers
    before the bulk has ripened (Wever et al., 2016). A model that represents
-   this will report outflow while cold. The 5 % allowance absorbs a little of
-   it, and a model that does much more would need a probe that scores it
-   against observations rather than against its own bulk cold content.
+   this will report outflow while cold, and is outside the bulk assumption this
+   probe checks; *Applicability* says how that is handled. The 5 % allowance
+   absorbs a little of it, and a model that does much more would need a probe
+   that scores it against observations rather than against its own bulk cold
+   content.
 3. **Rain-on-snow.** The block must be dry, for the reason above.
-4. **Timing within the step.** At a daily step, a model that ripens and drains
-   on the same day is excused for that day.
+4. **Timing within the step.** A step that ends ripe is excused whole, because
+   it may have paid its deficit and drained within itself. Daily, that is the
+   whole ripening day; hourly, only its last hour. The blind interval is one
+   step's outflow, and a test keeps it visible: 30 mm/day on the ripening day
+   is 0 % of the peak pack at a daily step and 5.8 % at an hourly one. Away from
+   the transition the two agree.
 
 ## References
 
@@ -180,9 +216,9 @@ What this probe does **not** test:
   Cambridge University Press.
 - Marsh, P. and Woo, M.-K. (1984). Wetting front advance and freezing of
   meltwater within a snow cover. *Water Resources Research*, 20(12), 1853–1864.
-- Wever, N. et al. (2016). Simulating the influence of snow surface processes
-  on soil moisture dynamics and streamflow generation in an alpine catchment.
-  *The Cryosphere*, 10, 2731–2744.
+- Wever, N., Würzer, S., Fierz, C. and Lehning, M. (2016). Simulating ice layer
+  formation under the presence of preferential flow in layered snowpacks.
+  *The Cryosphere*, 10, 2731–2744. <https://doi.org/10.5194/tc-10-2731-2016>
 
 ## Provenance
 

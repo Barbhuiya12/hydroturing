@@ -77,7 +77,7 @@ _KNOWN = {
     "precipitation", "segment_column", "scored_label", "threshold",
     "min_peak_pack_mm", "cold_content_tolerance_j", "min_opening_depression_k",
     "sensible_heat_coefficient", "dry_tolerance_mm", "min_opening_ice_share",
-    "pack_temperature_margin_k", "max_ground_melt_mm_per_day",
+    "pack_temperature_margin_k", "max_ground_melt_mm_per_day", "liquid_tolerance_mm",
 }
 
 
@@ -108,17 +108,19 @@ def snowpack_ripening(run: RunResult, probe: ProbeSpec, params: dict) -> Criteri
     min_ice_share = float(params.get("min_opening_ice_share", 0.5))
     t_margin = float(params.get("pack_temperature_margin_k", 2.0))
     ground_melt = float(params.get("max_ground_melt_mm_per_day", 0.3))
+    liquid_tol = float(params.get("liquid_tolerance_mm", 1e-6))
 
     # A non-finite or negative bound would disable a check rather than tighten
     # it: `.nan` compares false against everything, so it would read as passed.
     bounds = (threshold, min_peak, c_eps, min_depression, k_sensible, dry_tolerance_mm,
-              min_ice_share, t_margin, ground_melt)
+              min_ice_share, t_margin, ground_melt, liquid_tol)
     if not all(np.isfinite(b) and b >= 0.0 for b in bounds):
         raise ValueError(
             "snowpack_ripening needs finite, non-negative threshold, "
             "min_peak_pack_mm, cold_content_tolerance_j, min_opening_depression_k, "
             "sensible_heat_coefficient, dry_tolerance_mm, min_opening_ice_share, "
-            "pack_temperature_margin_k and max_ground_melt_mm_per_day; "
+            "pack_temperature_margin_k, max_ground_melt_mm_per_day and "
+            "liquid_tolerance_mm; "
             f"got {bounds}"
         )
 
@@ -173,6 +175,20 @@ def snowpack_ripening(run: RunResult, probe: ProbeSpec, params: dict) -> Criteri
     if not (np.isfinite(q).all() and np.isfinite(snw).all() and np.isfinite(csnow).all()):
         return _fail("non-finite outflow, pack or cold content in the scored record",
                      outcome="non_finite")
+    # `lwsnl` is optional, so nothing upstream has validated it when a model
+    # reports it. It sets the ice the pack's temperature is read through, and a
+    # NaN there reaches `argmax` below, which selects it, and a comparison with
+    # NaN is false: one blank cell would skip the supply bound altogether. Absent
+    # still means no liquid; reported, it has to be a number between 0 and `snw`.
+    if liquid in w.table.columns:
+        if not np.isfinite(lw).all():
+            return _fail(f"non-finite '{liquid}' in the scored record; liquid water in the "
+                         "pack, when reported, has to be a number on every row",
+                         outcome="non_finite")
+        if (lw < -liquid_tol).any() or (lw > snw + liquid_tol).any():
+            return _fail(f"'{liquid}' falls outside [0, '{pack}'] in the scored record; the "
+                         "liquid is held inside the pack and cannot be negative or exceed it",
+                         outcome="invalid_liquid")
 
     last = max(stop for _, _, stop in scored)
     peak = float(snw[:last].max()) if last else 0.0
@@ -195,6 +211,9 @@ def snowpack_ripening(run: RunResult, probe: ProbeSpec, params: dict) -> Criteri
             ice0 = float(w.state0[pack]) - (
                 float(w.state0[liquid]) if liquid in w.state0.index else 0.0
             )
+            if not (np.isfinite(c0) and np.isfinite(ice0)):
+                return _fail("non-finite pack or cold content before the scored block",
+                             outcome="non_finite", block=label)
         c_open = np.concatenate([[c0], csnow[start:stop - 1]])      # at each step's start
         ice_open = np.concatenate([[ice0], (snw - lw)[start:stop - 1]])
         c_end = csnow[start:stop]
@@ -258,6 +277,12 @@ def snowpack_ripening(run: RunResult, probe: ProbeSpec, params: dict) -> Criteri
                   + k_sensible * np.maximum(tas[start:stop] - t_pack, 0.0)) * dt_seconds
         warming = c_open - c_end
         excess = warming - supply
+        # `argmax` selects a NaN and a comparison with NaN is false, so a bad
+        # value anywhere above would skip this bound without a word.
+        if not np.isfinite(excess).all():
+            return _fail(f"non-finite energy bound in the '{label}' block; the cold content, "
+                         "ice or forcing it is formed from is not a number on every row",
+                         outcome="non_finite", block=label)
         worst_rate = int(np.argmax(excess))
         if excess[worst_rate] > c_eps:
             return _fail(

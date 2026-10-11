@@ -14,21 +14,23 @@ authors:
 
 description: >
   Build a snowpack over a cold winter, then warm it through a dry block that
-  opens below -14 C and ends above +4 C. A pack below freezing refreezes the
-  water its surface produces, paying down its cold content with the latent
-  heat, and nothing drains until that deficit is gone and the pore space has
-  filled. So the water a model reports leaving the snow module, snm, must not
-  flow while the cold content it reports, csnow, is still positive, beyond
-  five percent of the peak pack. Melt itself is not forbidden: in a layered
-  pack surface melt percolates into colder snow and refreezes there, which
-  releases no water and is invisible to this check. This corrects the earlier
-  ROADMAP entry energy/snowpack-cold-content, whose rule of no melt below
-  freezing would fail a correct layered model. The check is a consistency
-  check between a model's outflow and its own cold content, not an energy
-  balance: it catches drainage that ignores the cold content the model
-  carries, and cannot catch a model that reports less cold content than it
-  has, which only a surface energy balance such as
-  energy/snowmelt-energy-water can. It needs no energy fluxes, so it reaches
+  opens below -14 C and ends above +4 C. In the bulk, matrix-flow picture of a
+  snowpack, a pack below freezing refreezes the water its surface produces,
+  paying down its cold content with the latent heat, and nothing drains until
+  that deficit is gone and the pore space has filled. So the water a model
+  reports leaving the snow module, snm, must not flow while the cold content it
+  reports, csnow, is still positive, beyond five percent of the peak pack. Melt
+  itself is not forbidden: in a layered pack surface melt percolates into colder
+  snow and refreezes there, which releases no water and is invisible to this
+  check. This corrects the earlier ROADMAP entry energy/snowpack-cold-content,
+  whose rule of no melt below freezing would fail a correct layered model. The
+  check is a consistency check between a model's outflow and its own cold
+  content, not an energy balance: it catches drainage that ignores the cold
+  content the model carries, and cannot catch a model that reports less cold
+  content than it has, which only a surface energy balance such as
+  energy/snowmelt-energy-water can. A model that represents preferential flow is
+  outside the bulk assumption, and whether it is scored is a maintainer decision
+  (see the README, Applicability). It needs no energy fluxes, so it reaches
   temperature-index models that probe cannot score. Filed under energy because
   the rule is one of energy -- latent heat paying a deficit -- read through
   water.
@@ -133,6 +135,12 @@ criteria:
       # the pack declared nearly all liquid reads as impossibly cold, and the
       # sensible heat that follows would cover any fall.
       pack_temperature_margin_k: 2.0
+      # When a model reports lwsnl it has to be a number on every row and between
+      # 0 and snw, within this many mm. The column is optional, so nothing else
+      # validates it, and it sets the ice the pack's temperature is read through:
+      # one blank cell used to make the supply bound select a NaN and skip itself.
+      # Honest values sit inside [0, snw] to rounding.
+      liquid_tolerance_mm: 1.0e-6
 
 baselines:
   # The energy-balance pack pays its cold content before it melts, and drains

@@ -36,6 +36,7 @@ def _params(**overrides):
         "min_opening_ice_share": 0.5,
         "pack_temperature_margin_k": 2.0,
         "max_ground_melt_mm_per_day": 0.3,
+        "liquid_tolerance_mm": 1.0e-6,
     }
     params.update(overrides)
     return params
@@ -213,6 +214,84 @@ def test_a_pack_reported_liquid_cannot_read_as_impossibly_cold():
     series["lwsnl"] = np.zeros_like(series["snw"])
     series["lwsnl"][t] = series["snw"][t] - 1e-7
     assert _written_off(series, t + 1).diagnostics["outcome"] == "ripens_too_fast"
+
+
+@pytest.mark.parametrize("bad", [np.nan, np.inf])
+@pytest.mark.parametrize("row", ["opening", "interior"])
+def test_a_blank_liquid_cell_cannot_skip_the_supply_bound(bad, row):
+    # `lwsnl` is optional, so nothing upstream validates it. One blank cell on a
+    # write-off that otherwise fails as `ripens_too_fast` used to turn it into a
+    # pass: `argmax` selected the NaN and a comparison with NaN is false.
+    series = _pack(leak=3.0)
+    series["csnow"][ACCUMULATION:] = 0.0
+    series["lwsnl"] = np.zeros_like(series["snw"])
+    series["lwsnl"][ACCUMULATION if row == "opening" else ACCUMULATION + 5] = bad
+    result = _score(series)
+    assert result.status == FAIL
+    assert result.diagnostics["outcome"] == "non_finite"
+
+
+@pytest.mark.parametrize("column", ["rn", "tas"])
+def test_a_bad_forcing_value_cannot_skip_the_supply_bound_either(column):
+    # The same silent skip by another route: the bound is formed from the case's
+    # forcing as well, and a NaN there is selected by `argmax` just the same.
+    series = _pack(leak=3.0)
+    series["csnow"][ACCUMULATION:] = 0.0
+    series[column][ACCUMULATION + 3] = np.nan
+    result = _score(series)
+    assert result.status == FAIL
+    assert result.diagnostics["outcome"] == "non_finite"
+
+
+@pytest.mark.parametrize("construction", ["negative", "exceeds_pack"])
+def test_liquid_outside_zero_and_the_pack_fails(construction):
+    series = _pack()
+    series["lwsnl"] = np.zeros_like(series["snw"])
+    if construction == "negative":
+        series["lwsnl"][ACCUMULATION + 3] = -5.0
+    else:
+        series["lwsnl"][ACCUMULATION + 3] = series["snw"][ACCUMULATION + 3] + 5.0
+    assert _score(series).diagnostics["outcome"] == "invalid_liquid"
+
+
+def test_a_liquid_column_inside_the_pack_changes_nothing():
+    # Reported and valid, it is read as it always was: 2% of the pack held as
+    # liquid leaves the ripening verdict where it was.
+    series = _pack(leak=0.1)
+    series["lwsnl"] = 0.02 * series["snw"]
+    assert _score(series).status == PASS
+
+
+def test_a_cold_content_written_down_inside_the_energy_supply_still_passes():
+    # The documented limit, kept as an example so it cannot drift into a claim.
+    # The supply bound stops a fall in one step, not a gradual one: this pack
+    # pays off its deficit in four days, at 3.9 MJ/m2/day against 5.2 or more of
+    # supply, and drains from then on. An honest pack with this opening deficit
+    # needs about twelve days. The criterion cannot tell the two apart, because
+    # both are consistent with the cold content the model reports.
+    result = _score(_pack(ripe_on=4, drain=15.0))
+    assert result.status == PASS
+    assert result.value == 0.0
+
+
+def test_the_step_that_ripens_the_pack_is_excused_whole():
+    # The one place a daily and an hourly record of the same water can differ.
+    # A step that ends ripe may have paid its deficit and drained within itself,
+    # so it is excused. Daily, that is the whole ripening day; hourly, only its
+    # last hour, and the 23 cold hours before it count. The blind interval is
+    # one step's outflow: here 30 mm/day on the ripening day, 5.8% of the peak
+    # hourly and 0% daily. Move the same leak one day earlier and both fail
+    # (test_the_share_does_not_depend_on_the_step).
+    day = ACCUMULATION + 11
+    daily = _pack(ripe_on=12, drain=0.0)
+    daily["snm"][day] = 30.0
+    hourly = _pack(ripe_on=12, drain=0.0, steps_per_day=24)
+    first = ACCUMULATION * 24 + 11 * 24
+    hourly["snm"][first:first + 24] = 30.0
+    assert _score(daily, "PT1D").status == PASS
+    result = _score(hourly, "PT1H")
+    assert result.status == FAIL
+    assert result.value == pytest.approx(23 * 30.0 / 24 / PACK)
 
 
 def test_negative_cold_content_and_negative_outflow_fail():
