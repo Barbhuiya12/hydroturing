@@ -19,8 +19,10 @@ from hydroturing.criteria import (  # noqa: F401,E402
     bounds,
     coherence,
     degeneracy,
+    datum,
     event_water_closure,
     exchange,
+    froude,
     groundwater,
     human,
     limits,
@@ -51,3 +53,4 @@ __all__ = [
     "make_window",
     "segments",
 ]
+

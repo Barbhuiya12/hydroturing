@@ -15,6 +15,7 @@ from hydroturing.criteria import get
 from hydroturing.criteria.base import FAIL, PASS
 from hydroturing.harness import (
     build_case,
+    compatibility_issues,
     load_generator,
     resolve_window_days,
     run_probe,
@@ -145,6 +146,13 @@ def test_prescribed_net_radiation_case_is_incompatible_before_adapter_execution(
     outcome = run_probe(model, surface_probe, [11], workdir=tmp_path)
     assert (outcome.verdict, outcome.reason) == (NOT_SCORED, INCOMPATIBLE)
     assert outcome.incompatible == ["model does not declare that it consumes forcing rn"]
+    # A declaration alone cannot qualify them: the real case still lacks
+    # the incoming radiation and soil layer these models need to run.
+    case = build_case(surface_probe, 11)
+    assert compatibility_issues(model, surface_probe, case, check_declared_inputs=False) == [
+        "forcing does not provide rsds, rlds",
+        "static does not provide soil_heat_capacity_areal, soil_layer_depth_m, soil_temperature_initial",
+    ]
 
 
 @pytest.mark.parametrize("kind,key", [

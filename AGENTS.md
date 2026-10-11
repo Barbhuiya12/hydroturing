@@ -261,15 +261,24 @@ model may read a head for another purpose, so declaring `gwh` asserts that the
 model's own `gwex` responds monotonically to that head, and
 `mass/exchange-response` holds it to the assertion rather than to the reading.
 
-Declaring `rn` means accepting the supplied net radiation as the external
-energy input to the reported surface budget. It does not assert that the
-resulting budget closes; that is what the energy criterion tests. An adapter
-that only uses `rn` to construct a reference sky, then lets its model compute
-a different net radiation, must document that mapping without declaring
-prescribed-`rn` support. `energy/surface-energy-closure` requires this input
-contract, so an adapter with the heat outputs but without that declaration
-is `N/A (INCOMPATIBLE)`. Do not infer compatibility from a small residual or
-turn a large residual into N/A.
+A probe that lists `rn` under `requires.forcing`, including the hourly
+`energy/surface-energy-closure`, holds the adapter to a prescribed-`rn`
+contract. Declaring `rn` means accepting the supplied net radiation as the
+external energy input to the reported surface budget. It does not assert that
+the resulting budget closes; that is what the energy criterion tests. An
+adapter that only uses `rn` to construct a reference sky, then lets its model
+compute a different net radiation, must document that mapping without
+declaring prescribed-`rn` support. On such a probe, an adapter with the heat
+outputs but without that declaration is `N/A (INCOMPATIBLE)`. Do not infer
+compatibility from a small residual or turn a large residual into N/A.
+
+The daily `energy/latent-heat-et-consistency` and `energy/evaporative-partition`
+also drive `energy_closure`, and on the partition probe `partition_shift`,
+with `rn`, but do not list it under `requires.forcing`, so they still score an
+adapter that computes its own sky. The applicability of those `rn`-driven
+results to such an adapter is not established.
+Daily averaging and the 5% tolerance do not remove the input mismatch, so
+treat those results as archived scores whose applicability is not established.
 
 A probe's `requires.forcing` and `requires.static` accept either `needs_*`
 or `uses_*`. For example, `energy/radiation-consistency` requires consumption
@@ -358,7 +367,10 @@ For a merged probe:
    something and a probe it is N/A on is in neither number; the flowchart
    under "How it works" gains a labelled entry in the right pillar,
    with an `infra.probe.<key>` translation in each language, measured against
-   the pillar's width. The badge count is generated and needs nothing.
+   the pillar's width. The badge count is generated and needs nothing. The
+   two charts, the probes by law and each model's passes by law, read a JSON
+   block that `python3 scripts/site_standings.py` rewrites from
+   `models/result.csv`; run it after archiving the rows in step 5.
 5. `models/result.csv`: one row per evaluated model on the new probe, written
    by `ht run --model <name> --probe <id> --gate-seeds --csv models/result.csv`
    rather than by hand. A probe that cannot be put to the model is archived
@@ -368,6 +380,6 @@ For a merged probe:
    an adapter author it exists except this table.
 
 For a merged model: the README models table, the CONTRIBUTORS models table,
-the site's `models.rows` in all three languages, and the archive rows from
-`ht run` on every probe. The pages workflow redeploys the site on any push
+the site's `models.rows` in all three languages, the archive rows from
+`ht run` on every probe, and `python3 scripts/site_standings.py` after them. The pages workflow redeploys the site on any push
 that touches `site/`, `probes/` or `models/`.
