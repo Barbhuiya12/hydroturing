@@ -394,11 +394,11 @@ all three hydraulic states, the celerity implied by that native relation differs
 from the criterion's exact rectangular `dQ/dA` by only -0.08% to +0.56%;
 the production allowance remains 5%.
 
-A clean GitHub Actions Docker run of adapter `1.0.4-ht.5` on all three gate
-seeds passed #148 without changing the threshold:
+A Docker run of adapter `1.0.4-ht.5` on all three gate seeds, scored with the
+signed first moment, passed #148 without changing the threshold:
 
 ```
-low = 0.704 m/s < medium = 0.927 m/s < high = 1.225 m/s
+low = 0.704 m/s < medium = 0.927 m/s < high = 1.224 m/s
 ```
 
 This is the independent submitted-physical-model evidence for the probe.

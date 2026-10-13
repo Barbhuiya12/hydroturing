@@ -337,7 +337,7 @@ case on the full record (`window_days: full`).
 | `momentum/routing-lag-consistency` | N/A | INCOMPATIBLE | does not consume the catchment-scale channel-length contract used by that separate lag probe |
 | `momentum/stage-discharge-monotonic` | N/A | INCOMPLETE | does not report `stage` |
 | `momentum/uniform-flow-friction-consistency` | N/A | INCOMPLETE | does not report `stage` |
-| `momentum/wave-celerity-bounds` | PASS | OK | native Wflow routing gives low=0.704 < medium=0.927 < high=1.225 m/s, all within the 5% Manning/kinematic allowance |
+| `momentum/wave-celerity-bounds` | PASS | OK | native Wflow routing gives low=0.704 < medium=0.927 < high=1.224 m/s, all within the 5% Manning/kinematic allowance |
 
 The six energy probes that need additional energy/surface diagnostics are N/A (INCOMPLETE) because wflow_sbm
 computes no latent, sensible or ground heat flux and no surface temperature; that is the
