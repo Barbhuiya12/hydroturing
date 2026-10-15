@@ -104,6 +104,12 @@ unresolved, and daily averaging or the 5% tolerance does not remove the input
 mismatch. Treat them as archived scores whose applicability is not
 established.
 
+Routing probes may supply `q_in`, a prescribed river inflow in m3/s, positive
+into the routing control volume. This is already a volumetric discharge: do
+not convert it through `area_km2` as though it were a depth rate. A model
+listing `q_in` under `uses_forcing` must map it to a real native
+river/reach-inflow path whenever the column is present.
+
 ## 2. Write the adapter
 
 Read `/io/request.json`, read the forcing, call your model, write the table.
