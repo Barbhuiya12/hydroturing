@@ -71,7 +71,7 @@ inside `reaches`. Reach IDs are strings and leading zeros are significant.
 For example, the routing table is:
 
 ```csv
-time,reach_id,q_in,q_out,channel_storage
+time,reach_id,reach_q_in,q_out,channel_storage
 2001-01-01,A,12.3,8.4,336960
 2001-01-01,B,7.1,4.9,190080
 2001-01-01,C,13.3,9.2,354240
@@ -79,7 +79,7 @@ time,reach_id,q_in,q_out,channel_storage
 
 Each `(time, reach_id)` pair must be unique. Every declared reach must have
 exactly one row for every forcing row, including spinup, and each reach's time
-axis must match `forcing.csv`. `q_in` and `q_out` are interval-mean discharge
+axis must match `forcing.csv`. `reach_q_in` and `q_out` are interval-mean discharge
 rates in m3/s. `channel_storage` is the absolute volume stored in that reach at
 the end of the interval, in m3. It is not a tendency and must not be converted
 to catchment-average depth. A missing requested routing column, reach or time
@@ -217,7 +217,7 @@ numbers in both runs; keep it that way and do not reseed from the clock.
 | `evspsbl` | evapotranspiration | mm/day |
 | `mrro` | total runoff | mm/day |
 | `dis` | river discharge | m3/s |
-| `q_in` | interval-mean inflow to the identified reach for the row's time interval; reach-indexed in `routing.csv`, never a catchment-average flux | m3/s |
+| `reach_q_in` | interval-mean inflow to the identified reach for the row's time interval; reach-indexed in `routing.csv`, never a catchment-average flux | m3/s |
 | `q_out` | interval-mean outflow from the identified reach for the row's time interval; reach-indexed in `routing.csv`, never a catchment-average flux | m3/s |
 | `channel_storage` | absolute water volume stored in the identified reach at the end of the row's time interval; reach-indexed in `routing.csv`, not a tendency and not catchment-average `channel` storage | m3 |
 | `gwex` | a declared exchange with the outside: regional groundwater, inter-basin transfer; positive into the catchment | mm/day |
@@ -311,12 +311,12 @@ separately from the catchment-level result columns:
 emits:
   fluxes: [mrro, dis]
   states: [channel]
-  routing: [q_in, q_out, channel_storage]
+  routing: [reach_q_in, q_out, channel_storage]
 ```
 
 Variables declared under `emits.routing` belong in `routing.csv`, not in
 `result.csv`, `emits.fluxes` or `emits.states`. Declaring them means the
-adapter must write the requested long table; do not construct `q_in` or
+adapter must write the requested long table; do not construct `reach_q_in` or
 `channel_storage` from a budget residual merely to satisfy the contract.
 
 
