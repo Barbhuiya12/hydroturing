@@ -41,7 +41,7 @@ DIAG_VARS = ("ts", "tsoil_layer", "stage", "lwsnl", "csnow")
 
 # Reach-indexed routing variables live in output/routing.csv rather than the
 # one-row-per-timestep result table.
-ROUTING_VARS = ("q_in", "q_out", "channel_storage")
+ROUTING_VARS = ("reach_q_in", "q_out", "channel_storage")
 
 UNITS = {
     "pr": "mm day-1",
@@ -49,6 +49,7 @@ UNITS = {
     "mrro": "mm day-1",
     "dis": "m3 s-1",
     "q_in": "m3 s-1",
+    "reach_q_in": "m3 s-1",
     "q_out": "m3 s-1",
     "channel_storage": "m3",
     "gwex": "mm day-1",
