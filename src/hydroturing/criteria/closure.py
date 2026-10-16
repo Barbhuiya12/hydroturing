@@ -19,7 +19,7 @@ from __future__ import annotations
 import numpy as np
 
 from hydroturing.criteria.base import (
-    FAIL, PASS, CriterionResult, criterion, make_window, reported_states,
+    FAIL, PASS, CriterionResult, criterion, make_window, reported_states, segments, storage_at,
 )
 from hydroturing.protocol import RunResult
 from hydroturing.spec import ProbeSpec
@@ -41,7 +41,10 @@ def closure(run: RunResult, probe: ProbeSpec, params: dict) -> CriterionResult:
         raise ValueError(f"unknown denominator '{denom_key}'")
     forcing_var, take_abs = DENOMINATORS[denom_key]
 
-    w = make_window(run, probe)
+    # A periodic probe may ask for closure on each selected evaluation cycle.
+    # The phase window supplies the state immediately before that cycle, so
+    # the first interval is not silently dropped from the budget.
+    w = make_window(run, probe, params.get("phase"))
     if forcing_var not in w.forcing.columns:
         raise ValueError(
             f"closure denominator '{denom_key}' needs forcing column "
@@ -51,14 +54,41 @@ def closure(run: RunResult, probe: ProbeSpec, params: dict) -> CriterionResult:
     # The driver is taken from the forcing, never from what the model echoed
     # back. A model that quietly rescales its input is caught separately by
     # forcing_fidelity, not by silently changing the denominator here.
-    drive = w.volume(w.forcing[forcing_var])
+    if denom_key == "sum_inflow":
+        # q_in is a volumetric river inflow (m3/s), while water-budget sinks
+        # and storages are catchment-equivalent depths (mm). Convert each row
+        # before forming the closure identity:
+        #
+        #   m3/s * 86400 s/day * dt_days / (area_km2 * 1e6 m2) * 1000 mm/m
+        #   = q_in * 86.4 * dt_days / area_km2.
+        try:
+            area_km2 = float(run.case.static["area_km2"])
+        except (KeyError, TypeError, ValueError):
+            raise ValueError(
+                "closure denominator 'sum_inflow' needs positive static 'area_km2'"
+            ) from None
+        if not np.isfinite(area_km2) or area_km2 <= 0:
+            raise ValueError(
+                "closure denominator 'sum_inflow' needs positive static 'area_km2'"
+            )
+        drive = (
+            np.asarray(w.forcing[forcing_var], dtype=float)
+            * 86.4
+            * w.dt_days
+            / area_km2
+        )
+    else:
+        drive = w.volume(w.forcing[forcing_var])
     if take_abs:
         drive = np.abs(drive)
 
     sinks = params.get("sinks", ["evspsbl", "mrro"])
+    optional_sinks = set(params.get("optional_sinks", []))
     outflow = np.zeros(len(w.table))
     for var in sinks:
         if var not in w.table.columns:
+            if var in optional_sinks:
+                continue
             raise ValueError(f"closure needs '{var}' in the model result")
         outflow += w.volume(w.table[var])
 
@@ -74,12 +104,43 @@ def closure(run: RunResult, probe: ProbeSpec, params: dict) -> CriterionResult:
             declared += w.volume(w.table[var])
     drive = drive + declared
 
-    states = reported_states(w, probe)
+    states = params.get("states")
+    if states is None:
+        states = reported_states(w, probe)
+    else:
+        states = tuple(states)
+
     storage = w.storage(states)
     storage_change = float(storage[-1]) - w.storage_initial(states)
 
     step_residual = drive - outflow - np.diff(storage, prepend=w.storage_initial(states))
     cumulative = float(drive.sum() - outflow.sum() - storage_change)
+
+    # Optionally score each contiguous labelled regime separately. Summing
+    # absolute regime residuals prevents an error in one regime from being
+    # cancelled by an opposite error in another.
+    segment_column = params.get("segment_column")
+    segment_residuals = []
+    if segment_column is not None:
+        cumulative = 0.0
+        for label, start, stop in segments(w, segment_column):
+            storage_start = storage_at(w, states, start)
+            storage_end = float(storage[stop - 1])
+            storage_change_segment = storage_end - storage_start
+            residual = float(
+                drive[start:stop].sum()
+                - outflow[start:stop].sum()
+                - storage_change_segment
+            )
+            cumulative += abs(residual)
+            segment_residuals.append(
+                {
+                    "label": label,
+                    "start": start,
+                    "stop": stop,
+                    "residual": residual,
+                }
+            )
 
     total_drive = float((drive - declared).sum())
     if total_drive <= 0:
@@ -120,6 +181,7 @@ def closure(run: RunResult, probe: ProbeSpec, params: dict) -> CriterionResult:
             "max_step_residual": float(np.abs(step_residual).max()),
             "mean_step_residual": float(np.abs(step_residual).mean()),
             "suspicious_exact": suspicious,
+            "segment_residuals": segment_residuals,
         },
     )
 

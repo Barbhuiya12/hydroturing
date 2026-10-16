@@ -21,6 +21,10 @@ PASS = "pass"
 FAIL = "fail"
 
 
+class CriterionIncompatibleError(ValueError):
+    """A result reveals a contract convention mismatch, so the probe is N/A."""
+
+
 @dataclass
 class CriterionResult:
     name: str
@@ -120,7 +124,7 @@ def reported_states(window: Window, probe: ProbeSpec) -> tuple[str, ...]:
     return required + extra
 
 
-def make_window(run: RunResult, probe: ProbeSpec) -> Window:
+def make_window(run: RunResult, probe: ProbeSpec, phase: str | None = None) -> Window:
     """The scored stretch of one run, at that run's own step.
 
     The step comes from the case rather than the probe, because a paired
@@ -128,6 +132,27 @@ def make_window(run: RunResult, probe: ProbeSpec) -> Window:
     depths have to be integrated with its own dt.
     """
     case = run.case
+    if phase is not None:
+        if "_phase" not in case.forcing.columns:
+            raise ValueError("phase-scoped window needs a '_phase' forcing column")
+        labels = case.forcing["_phase"].astype(str).to_numpy()
+        indices = np.flatnonzero(labels == phase)
+        if not len(indices):
+            raise ValueError(f"phase-scoped window has no '{phase}' rows")
+        expected = np.arange(indices[0], indices[0] + len(indices))
+        if not np.array_equal(indices, expected):
+            raise ValueError(f"phase-scoped window '{phase}' is not contiguous")
+        prior = indices[0] - 1
+        if prior < 0:
+            raise ValueError(
+                f"phase-scoped window '{phase}' has no preceding state row"
+            )
+        return Window(
+            forcing=case.forcing.iloc[indices].reset_index(drop=True),
+            table=run.table.iloc[indices].reset_index(drop=True),
+            state0=run.table.iloc[prior],
+            dt_days=case.dt_days,
+        )
     start = case.spinup_steps
     if start >= len(run.table):
         raise ValueError("spinup consumes the entire record; nothing left to score")
@@ -139,6 +164,47 @@ def make_window(run: RunResult, probe: ProbeSpec) -> Window:
         state0=run.table.iloc[prior],
         dt_days=case.dt_days,
     )
+
+
+def depth_series(run: RunResult) -> np.ndarray:
+    """Return flow depth from stage on the case's declared fixed datum.
+
+    A stage-consuming criterion that needs a depth, ratio, or power must call
+    this helper rather than infer a datum.  The probe must require the rigid
+    bed elevation.  A series far below that bed normally means the model
+    reported depth above bed in the ``stage`` column; that is a convention
+    mismatch, not a physical violation.  The magnitude check uses finite
+    entries so one missing row cannot turn a record-wide convention mismatch
+    into a public violation.
+    """
+    if "stage" not in run.table.columns:
+        raise ValueError("depth_series needs 'stage' in the model result")
+    if "bed_elevation_m" not in run.case.static:
+        raise ValueError(
+            "depth_series needs case static 'bed_elevation_m'; a criterion "
+            "that forms depth from stage must require the datum"
+        )
+    try:
+        bed = float(run.case.static["bed_elevation_m"])
+    except (TypeError, ValueError):
+        raise ValueError("bed_elevation_m must be numeric") from None
+    if not np.isfinite(bed):
+        raise ValueError("bed_elevation_m must be finite")
+
+    depth = np.asarray(run.table["stage"], dtype=float) - bed
+    finite = depth[np.isfinite(depth)]
+    if (
+        abs(bed) > 0.0
+        and len(finite)
+        and float(np.median(finite)) < -0.5 * abs(bed)
+    ):
+        raise CriterionIncompatibleError(
+            "reported stage is far below bed_elevation_m on most finite steps; "
+            "stage must "
+            "be water-surface elevation on the case's fixed vertical datum, "
+            "not depth above the bed"
+        )
+    return depth
 
 
 def segments(window: Window, column: str = "_regime") -> list[tuple[str, int, int]]:

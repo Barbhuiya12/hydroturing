@@ -84,6 +84,10 @@ One storm added: nothing may change before it, something must after.
 ### `mass/dry-down` &middot; **merged**
 Two years without rain: runoff can only fall, and only stored water can drain.
 
+### `mass/spinup-cycle-invariance` &middot; **merged**
+A repeated annual forcing cycle should produce the same evaluation-year response after different amounts of prior spin-up. The three variants share one calendar evaluation year while using coprime history offsets, separating slow physical stores from persistent hidden clocks.
+Contributed by Kaihao Long.
+
 ### `mass/steady-state` &middot; **merged**
 Three years of the same day: everything settles and the budget balances.
 
@@ -92,6 +96,16 @@ The largest storm scaled to ten times: runoff cannot fall, nor exceed the rain a
 
 ### `mass/runoff-bounds` &middot; **merged**
 Over ten years, is the runoff possible at all? The mass question a runoff-only model has to answer.
+
+### `mass/aquifer-recharge-ordering` &middot; **merged**
+Direct aquifer recharge must preserve groundwater storage and incremental exchange ordering.
+
+Contributed by Zhenjiang Wu (Xi'an Jiaotong University).
+
+### `mass/groundwater-datum-invariance` &middot; **merged**
+
+A common translation of all absolute groundwater heads and river elevations must leave the exchange trajectory unchanged.
+Contributed by Zhenjiang Wu (Xi'an Jiaotong University).
 
 ### `mass/area-invariance` &middot; **merged**
 The same weather on a ten times larger catchment: every depth identical.
@@ -105,10 +119,12 @@ The same storm after a dry month and a wet one: more runoff from the wet one, an
 ### `mass/phase-counterfactual` &middot; **merged**
 The same water as rain instead of snow: timing moves, volumes do not.
 
-### `mass/snowpack-mass-closure` &middot; starter &middot; **unclaimed**
-Snowfall minus melt minus sublimation minus the change in SWE.
-*Discriminates:* models that quietly lose water at the rain-snow transition,
-a very common bug that a whole-catchment budget can absorb.
+### `mass/snowpack-mass-closure` &middot; **merged**
+Closes the internal snowpack water balance separately across accumulation,
+storage and melt, using precipitation, snow-module liquid outflow,
+sublimation and snow-water storage. Catches snowpack-internal leakage that
+can remain hidden in a whole-catchment water balance.
+Contributed by Jinlong Hu (BNU).
 
 ### `mass/multi-decadal-drift` &middot; **merged**
 Fifty years of repeated warm weather expose a runoff reporting deficit hidden
@@ -161,10 +177,10 @@ Contributed by Yaji Wang (University of Illinois Urbana-Champaign).
 ## Generalisation
 
 Conservation that holds only where a model was fitted is not conservation, it
-is a coincidence of the training distribution. These four probes ask whether
+is a coincidence of the training distribution. These probes ask whether
 the property survives a move — to another place, to another time, to a
-different question. Each has a template, so the harness work is done and what
-is left is the case.
+different question. Some use an existing criterion template; others, such as
+the spin-up probe, add a criterion because the case exposes a distinct failure.
 
 ### `mass/extreme-event-closure` &middot; **merged**
 Overlap rainfall events in one median-wet year of a twenty-year record toward
@@ -299,51 +315,40 @@ more discharge at a given stage than the falling limb.
 relationship between depth and flow.
 Contributed by Yuanhang Liu.
 
-### `momentum/wave-celerity-bounds` &middot; hard &middot; **unclaimed**
-Kinematic wave celerity must be positive and near the Manning expectation for
-the reach geometry.
-*Discriminates:* models that route a flood wave upstream, or at a speed the
-channel cannot support.
+### `momentum/uniform-flow-friction-consistency` &middot; **merged**
+Across low, medium and high constant-flow plateaus, each final steady block
+must make Manning friction slope agree with the declared bed slope when
+discharge, stage, explicit rectangular geometry and roughness are read
+together. The mean absolute normalized residual may not exceed 5%.
+*Discriminates:* smooth, monotone and even subcritical ratings built with a
+different slope or Manning roughness from the geometry the model declares it
+consumes. A finite-volume Saint-Venant reference supplies the independent
+momentum solve.
+Contributed by Mofan Zhang (Department of Civil and Environmental Engineering,
+Stanford University, Stanford, CA, USA; GitHub: Mofan-coding; ORCID:
+https://orcid.org/0000-0001-8839-1808).
 
-### `momentum/froude-regime` &middot; standard &middot; **unclaimed**
-Flow in a mild-sloped reach must stay subcritical.
+### `momentum/froude-regime` &middot; **merged**
+A stage and a discharge are two readings of one cross-section. On a declared
+mild slope the pair a model reports has to stay subcritical, because water
+that outruns the wave carrying it cannot be sustained there. No budget sees
+it — a stage is not a store, so nothing is differenced over it — and no
+rating test sees it either: a gauge drawn for the wrong section varies as
+much as an honest one and rises with the flow, which is what the probe's
+counterexample is built to show.
 *Discriminates:* spurious supercritical flow, which usually signals the model
 is not solving anything resembling momentum.
+Contributed by Yuanhang Liu (Independent Researcher).
 
----
+### `momentum/wave-celerity-bounds` &middot; **merged**
+Across low, medium and high hydraulic states, paired short and long reaches
+must imply downstream transient celerity within 5% of the declared
+Manning/kinematic dQ/dA expectation, and the resolved celerity must increase
+with flow.
+*Discriminates:* fixed-celerity routers that can remain causal and
+length-dependent while ignoring hydraulic state, and routers whose transient
+speed is inconsistent with the reach geometry.
+Contributed by Jingzhi Chen (Department of Computer Science and Engineering,
+State University of New York at Buffalo, Buffalo, NY, USA; GitHub:
+mimosapudical).
 
-## Beyond conservation
-
-Counterfactual response and invariance have moved up into
-[Generalisation](#generalisation): the harness runs paired cases now, and both
-have templates. What remains out of scope for suite 0.1, listed so nobody
-builds it twice:
-
-- **Real-data track.** Internal closure under observed forcing. Note this
-  tests something different from the synthetic track: observed budgets do not
-  close, so observations can never be the reference.
-- **Spatial permutation.** Reorder the reaches of a network, or the years of a
-  record, and require the long-run totals to be unchanged. Weaker than it
-  looks, because storage carries across the boundary: only the totals are
-  invariant, not the series. Worth doing once the routing probes exist.
-- **Cross-model agreement.** Not a conservation test at all, and a different
-  kind of claim. Noted here only so it is clear it is deliberately absent.
-
----
-
-## Adding something not on this list
-
-Welcome, and please propose it first. The proposal form asks one question
-that matters more than the rest: *how would a model pass your probe while
-understanding no physics?* If you can answer that, you have a probe. If you
-cannot, you may have a diagnostic rather than a test.
-
-## Models we want
-
-All of them, and this list deliberately does not exist. There is no roadmap
-for models because there is no shortlist: any published rainfall-runoff
-model, any LSTM, any foundation model making a hydrologic claim is in scope,
-and the useful judgement is which ones the field would learn something from.
-Open a [model proposal](../../issues/new?template=model_submission.yml) and
-say why. The form's *packaging status* field decides whether the work lands
-with you or with the maintainer; it does not affect your credit either way.

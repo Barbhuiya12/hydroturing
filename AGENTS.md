@@ -34,8 +34,10 @@ Paths inside `request.json` are relative to the request file's directory.
 ```
 /io/request.json          read-only: opaque case id, model seed, timestep, n_steps, outputs
 /io/input/forcing.csv     read-only: columns time, pr, tas, pet (mm/day, degC, mm/day),
-                          and, when a probe prescribes a human withdrawal, abstr (mm/day, net);
-                          when a probe prescribes an external hydraulic head, gwh (m);
+                          plus any probe-declared forcing. Routing probes may prescribe
+                          q_in (m3/s, positive into the routing control volume);
+                          a human-withdrawal probe may add abstr (mm/day, net);
+                          a head-driven exchange probe may add gwh (m);
                           a groundwater-exchange probe supplies gw_recharge (mm/day)
                           and sw_stage_m (m) instead
 /io/input/static.json     read-only: catchment attributes
@@ -93,6 +95,14 @@ The model seed is deterministic for reproducible stochastic inference, but it
 is not the generator seed recorded in the host-side report. Exit 0 on success.
 There is no network. Do not attempt to download weights or data at run time;
 bake them into the image.
+
+A routing probe may prescribe `q_in` in the forcing, in m3/s, positive
+into the routing control volume. It is already a discharge rather than a depth
+rate over the catchment: an adapter must map it to the model's river/reach
+inflow without multiplying by catchment area or by the row duration. A model
+that declares `q_in` in `needs_forcing` or `uses_forcing` is asserting that
+its routing process actually consumes that prescribed inflow; merely copying
+the name into the manifest is not enough.
 
 Some probes prescribe a human withdrawal in the forcing as an `abstr` column
 (mm/day, net of return flow). Honouring it means removing that water from the
@@ -203,6 +213,7 @@ numbers in both runs; keep it that way and do not reseed from the clock.
 | Name | Meaning | Units |
 | --- | --- | --- |
 | `pr` | precipitation, echoed back from the forcing | mm/day |
+| `q_in` | prescribed river/upstream inflow supplied to a routing control volume; positive into the reach. It is an input forcing, not an output flux, and a model opts in through `needs_forcing` or `uses_forcing` | m3/s |
 | `evspsbl` | evapotranspiration | mm/day |
 | `mrro` | total runoff | mm/day |
 | `dis` | river discharge | m3/s |
@@ -215,6 +226,7 @@ numbers in both runs; keep it that way and do not reseed from the clock.
 | `sw_to_gw` | river-to-groundwater exchange component: the river losing to the aquifer, so it is never negative; `gw_to_sw + sw_to_gw` must equal `gw_sw_exchange` | mm/day |
 | `gw_boundary` | every other flux across the aquifer's own boundary (a GHB or WEL package, regional groundwater exchange), positive into the aquifer. The part that also crosses the catchment boundary is reported in `gwex` as well, and no budget adds the two. A well that pumps aquifer water onto fields inside the catchment is `gw_boundary` but not `gwex`. `mass/gw-sw-exchange-consistency` credits this column to the aquifer, never `gwex`, because `gwex` may leave from any store | mm/day |
 | `sbl` | the sublimating share of `evspsbl`: a component of it, never an addition; report it if the model knows which kilograms left as ice | mm/day |
+| `snm` | liquid water delivered from the snow module to the ground, including rain passing through the snow module and snowmelt; an internal flux across the snow-module boundary, never an additional catchment outflow beside `mrro` | mm/day |
 | `hfls` | latent heat flux, positive away from the surface | W/m2 |
 | `hfss` | sensible heat flux, positive away from the surface | W/m2 |
 | `hfg` | ground heat flux at the actual soil surface, positive into the ground; a flux taken below the surface must be corrected for heat storage above that depth | W/m2 |
@@ -227,7 +239,7 @@ numbers in both runs; keep it that way and do not reseed from the clock.
 | `gw` | groundwater storage below the soil column | mm |
 | `channel` | water generated as runoff but not yet released by the model's routing | mm |
 | `ts` | surface (skin) temperature at row i's `time`, the same instant as row i's `rlds`; a diagnostic, declared under `emits.diagnostics`, neither integrated nor differenced by any budget | K |
-| `stage` | the water level a gauge in the reach would read, derived from the reach's own water; a diagnostic, declared under `emits.diagnostics`, never a storage any budget is differenced over | m |
+| `stage` | water-surface elevation on the fixed vertical datum declared by the case; `bed_elevation_m` is the rigid reach bed on that same datum, so water depth is `stage - bed_elevation_m` at every step. Stage is a diagnostic, declared under `emits.diagnostics`, never a storage any budget is differenced over | m |
 | `lwsnl` | **every non-solid component of `snw`** at the end of row i's step, so that `snw - lwsnl` is the ice and nothing else. Liquid held in the pore space, and any other non-solid water the model counts inside `snw`: for Snow-17 that is `LIQW` together with the lagged excess and storage terms, since `snw` there is `WE + LIQW + exlag + storge`. Part of `snw` and never additional to it; a diagnostic, declared under `emits.diagnostics`, and excluded from every water-storage sum because counting it beside `snw` would count the same kilogram twice | mm |
 | `csnow` | the snowpack's **cold content** at the end of row i's step: the energy still needed to bring its ice to 0 °C, as a positive quantity, and zero for a ripe or empty pack. Reported as energy rather than as a temperature because that is what a budget spends, and because converting a temperature back through an assumed heat capacity is wrong for any model whose capacity differs; Snow-17 already carries it directly as `NEGHS`. A diagnostic, declared under `emits.diagnostics` | J m-2 |
 
@@ -412,7 +424,10 @@ For a merged probe:
    something and a probe it is N/A on is in neither number; the flowchart
    under "How it works" gains a labelled entry in the right pillar,
    with an `infra.probe.<key>` translation in each language, measured against
-   the pillar's width. The badge count is generated and needs nothing.
+   the pillar's width. The badge count is generated and needs nothing. The
+   two charts, the probes by law and each model's passes by law, read a JSON
+   block that `python3 scripts/site_standings.py` rewrites from
+   `models/result.csv`; run it after archiving the rows in step 5.
 5. `models/result.csv`: one row per evaluated model on the new probe, written
    by `ht run --model <name> --probe <id> --gate-seeds --csv models/result.csv`
    rather than by hand. A probe that cannot be put to the model is archived
@@ -422,6 +437,6 @@ For a merged probe:
    an adapter author it exists except this table.
 
 For a merged model: the README models table, the CONTRIBUTORS models table,
-the site's `models.rows` in all three languages, and the archive rows from
-`ht run` on every probe. The pages workflow redeploys the site on any push
+the site's `models.rows` in all three languages, the archive rows from
+`ht run` on every probe, and `python3 scripts/site_standings.py` after them. The pages workflow redeploys the site on any push
 that touches `site/`, `probes/` or `models/`.

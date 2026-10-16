@@ -71,13 +71,19 @@ written separately from the catchment-level result table:
 emits:
   fluxes: [mrro, dis]
   states: [channel]
-  routing: [q_in, q_out, channel_storage]
+  routing: [reach_q_in, q_out, channel_storage]
 ```
 
 Variables declared under `emits.routing` belong in `output/routing.csv`, not
 `output/result.csv`. The harness requests them only on a probe that declares
 `requires.routing` and supplies `routing_network.reaches` in `static.json`.
 The routing table contains one row for every forcing time and declared reach.
+
+The `stage` diagnostic is a water-surface elevation in metres on the fixed
+vertical datum declared by the case. `bed_elevation_m` is the rigid reach bed
+on that same datum, so water depth is `stage - bed_elevation_m` at every step.
+Do not report depth above bed in the `stage` column, infer an undeclared datum,
+or treat stage as a water-storage term.
 
 For the soil-storage probe, the control volume extends from the surface to
 `soil_layer_depth_m`, with prescribed `soil_heat_capacity_areal` and
@@ -91,6 +97,12 @@ model declares in `needs_*` or `uses_*`. Declare only inputs the adapter
 actually consumes, and document their mapping to native parameters. Layer
 metadata makes that mapping auditable; a matching declaration alone does not
 prove that the model used it. See the [soil-storage case](../probes/energy/soil-heat-storage-consistency/README.md).
+
+Routing probes may supply `q_in`, a prescribed river inflow in m3/s, positive
+into the routing control volume. This is already a volumetric discharge: do
+not convert it through `area_km2` as though it were a depth rate. A model
+listing `q_in` under `uses_forcing` must map it to a real native
+river/reach-inflow path whenever the column is present.
 
 ## 2. Write the adapter
 

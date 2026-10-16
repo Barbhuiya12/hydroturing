@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import importlib.util
 import inspect
+import math
 import tempfile
 from dataclasses import dataclass, replace
 from pathlib import Path
@@ -12,7 +13,12 @@ import numpy as np
 import pandas as pd
 
 from hydroturing import SUITE_VERSION, criteria as criteria_mod
-from hydroturing.criteria.base import CriterionResult
+from hydroturing.criteria.base import (
+    FAIL as CRITERION_FAIL,
+    PASS as CRITERION_PASS,
+    CriterionIncompatibleError,
+    CriterionResult,
+)
 from hydroturing.protocol import Case, RunResult
 from hydroturing.runner import get_runner
 from hydroturing.scoring import (
@@ -38,6 +44,27 @@ from hydroturing.spec import (
 # with the most precipitation. See `event_signal` for why that is the
 # fallback rather than the rule.
 WINDOW_DRIVER = "pr"
+
+
+def _as_bool(value, default=False):
+    """Read YAML-style booleans without treating ``"false"`` as true.
+
+    YAML normally gives us a real ``bool``, but quoted values are strings.
+    Calling ``bool`` on a non-empty string would silently enable an option
+    written as ``"false"``; accepting the common spellings keeps optional
+    harness flags safe for hand-written and generated probe specs alike.
+    """
+    if value is None:
+        return default
+    if isinstance(value, str):
+        text = value.strip().lower()
+        if text == "":
+            return default
+        if text in ("0", "false", "no", "off"):
+            return False
+        if text in ("1", "true", "yes", "on"):
+            return True
+    return bool(value)
 
 
 class WindowError(ValueError):
@@ -296,8 +323,57 @@ def evaluate_criteria(
     results = []
     for criterion in probe.criteria:
         fn = criteria_mod.get(criterion.name)
+        params = dict(criterion.params)
+        # Ordinary criteria historically judge the control run only.  A
+        # paired probe can opt into a per-variant precondition explicitly;
+        # this keeps existing probes unchanged while ensuring that a bad
+        # long-spinup run cannot hide behind a clean control run.
+        all_variants = _as_bool(params.pop("all_variants", False), default=False)
+        if all_variants and not criteria_mod.is_paired(criterion.name):
+            per_variant = {
+                name: fn(run, probe, params) for name, run in runs.items()
+            }
+            failed = [
+                name for name, result in per_variant.items() if not result.passed
+            ]
+            # A failed variant must remain the aggregate result even when its
+            # criterion has no numeric value (for example, a non-finite output
+            # failure). This mirrors the worst-seed selection below: status is
+            # primary, then the largest absolute deviation is worst.
+            worst_name, worst_result = min(
+                per_variant.items(),
+                key=lambda item: (item[1].passed, -abs(item[1].value or 0.0)),
+            )
+            message = "; ".join(
+                f"{name}: {result.message}" for name, result in per_variant.items()
+            )
+            results.append(
+                CriterionResult(
+                    name=criterion.name,
+                    status=CRITERION_FAIL if failed else CRITERION_PASS,
+                    value=worst_result.value,
+                    threshold=worst_result.threshold,
+                    message=message,
+                    diagnostics={
+                        "variants": {
+                            name: result.diagnostics
+                            for name, result in per_variant.items()
+                        },
+                        "worst_variant": worst_name,
+                        # Preserve closure's exact-budget diagnostic at the
+                        # aggregate level.  run_probe records flags from the
+                        # CriterionResult itself, while per-variant details
+                        # remain available for report inspection.
+                        "suspicious_exact": any(
+                            result.diagnostics.get("suspicious_exact", False)
+                            for result in per_variant.values()
+                        ),
+                    },
+                )
+            )
+            continue
         subject = runs if criteria_mod.is_paired(criterion.name) else control
-        results.append(fn(subject, probe, dict(criterion.params)))
+        results.append(fn(subject, probe, params))
     return results
 
 
@@ -480,6 +556,7 @@ def run_probe(
     }
     flags: list[str] = []
     windows: list[dict] = []
+    incompatible_seeds: list[tuple[int, str]] = []
 
     tmp_root = Path(workdir) if workdir else Path(tempfile.mkdtemp(prefix="hydroturing-"))
     tmp_root.mkdir(parents=True, exist_ok=True)
@@ -556,30 +633,82 @@ def run_probe(
                 per_criterion[result.name].append((seed, result))
                 if result.diagnostics.get("suspicious_exact"):
                     flags.append(f"suspicious_exact:{probe.id}")
+        except CriterionIncompatibleError as exc:
+            incompatible_seeds.append((seed, str(exc)))
         except Exception as exc:  # noqa: BLE001 - a runner, protocol or criterion failure is an ERROR
             return error_outcome(exc)
 
+    scored_seed_count = len(seeds) - len(incompatible_seeds)
+    minimum_scored_seeds = max(
+        1, math.ceil(probe.min_scored_fraction * len(seeds))
+    )
+    if scored_seed_count == 0:
+        return incompatible_outcome([
+            f"seed {seed}: {message}" for seed, message in incompatible_seeds
+        ])
+    incompatible_by_seed = dict(incompatible_seeds)
+    seed_coverage = (
+        f"scored on {scored_seed_count} of {len(seeds)} seeds; "
+        f"{len(incompatible_seeds)} N/A (precondition not reached)"
+        if incompatible_seeds
+        else ""
+    )
     outcomes = []
     for name, pairs in per_criterion.items():
         # The worst seed decides. A model that passes four seeds and fails the
         # fifth has not shown conservation, it has shown luck.
         worst_seed, worst = min(pairs, key=lambda pair: (pair[1].passed, -abs(pair[1].value or 0.0)))
+        results_by_seed = dict(pairs)
         outcomes.append(
             CriterionOutcome(
                 name=name,
                 status=worst.status,
-                message=worst.message,
+                message=(
+                    f"{seed_coverage}; {worst.message}"
+                    if seed_coverage
+                    else worst.message
+                ),
                 value=worst.value,
                 threshold=worst.threshold,
                 worst_seed=worst_seed,
                 per_seed=[
-                    {"seed": s, "status": r.status, "value": r.value} for s, r in pairs
+                    (
+                        {
+                            "seed": seed,
+                            "status": "incompatible",
+                            "value": None,
+                            "message": incompatible_by_seed[seed],
+                        }
+                        if seed in incompatible_by_seed
+                        else {
+                            "seed": seed,
+                            "status": results_by_seed[seed].status,
+                            "value": results_by_seed[seed].value,
+                        }
+                    )
+                    for seed in seeds
                 ],
                 diagnostics=worst.diagnostics,
             )
         )
 
     failing = [o.name for o in outcomes if not o.passed]
+    # The floor is applied only to a verdict that would pass. A criterion
+    # decides a seed is unscoreable by reading the model's own output, so the
+    # model chooses which seeds leave the sample: let the floor outrank a
+    # failure and a model escapes a violation by making its worst seeds
+    # unscoreable, which is the same move in the opposite direction.
+    if not failing and scored_seed_count < minimum_scored_seeds:
+        return incompatible_outcome([
+            f"only {scored_seed_count} of {len(seeds)} seeds could be scored; "
+            f"at least {minimum_scored_seeds} ({probe.min_scored_fraction:.0%}) "
+            "are required for a pass",
+            *(
+                f"seed {seed}: {message}"
+                for seed, message in incompatible_seeds
+            ),
+        ])
+
     return ProbeOutcome(
         probe_id=probe.id,
         law=probe.law,

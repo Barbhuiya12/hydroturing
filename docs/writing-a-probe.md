@@ -92,7 +92,7 @@ Every one is binary.
 
 | Criterion | Asserts | Scored over |
 | --- | --- | --- |
-| `closure` | the budget closes to within a share of the driving flux | one run |
+| `closure` | the declared budget closes to within a share of the driving flux; `states` can scope the storage term, `optional_sinks` may be absent, and `segment_column` scores contiguous labelled stretches separately so opposite residuals cannot cancel | one run or contiguous labelled stretches |
 | `event_water_closure` | every complete precipitation event satisfies `abs(R) <= max(threshold * P, absolute_tolerance_mm)`; defaults 0.05 and 0.001 mm; reports the worst residual / allowance against 1, with up to 20 failed events and summary percentiles | complete post-spinup wet events in one run, using supplied rain and all reported water stores |
 | `state_bounds` | every reported storage stays physical | one run |
 | `total_storage_drift` | total reported water storage changes by no more than a precipitation-relative allowance over the final repeated block | one run |
@@ -101,10 +101,13 @@ Every one is binary.
 | `exchange_directions` | the aquifer both gains from and loses to the river by at least `minimum_gross_mm` over the scored record | one run |
 | `et_plausible` | ET is non-negative and bounded by potential ET | one run |
 | `non_degenerate` | the partition and the response are non-trivial | one run |
+| `snowpack_response` | snow storage grows to a material fraction of integrated cold-stage precipitation and is depleted during the following melt stage | complete accumulation-storage-melt cycles in one run |
 | `forcing_fidelity` | the model reports back the forcing it was given | one run |
 | `regime_transfer` | closure holds out of range as well as in range | labelled stretches |
 | `counterfactual_response` | added or removed water is partitioned, not absorbed; `perturbed` may name one variant or a list, each scored against the control | paired runs |
 | `invariance` | a transform the physics ignores changes nothing | paired runs |
+| `datum_flux_invariance` | a common vertical datum shift leaves groundwater exchange unchanged, with a nonzero activity guard | paired runs |
+| `aquifer_recharge_ordering` | added direct aquifer recharge cannot lower storage or reverse incremental exchange, and is conserved cumulatively | paired runs |
 | `resolution_invariance` | integrated volumes agree between the same weather at two steps | paired runs at different steps |
 | `response_sign` | perturb one driver both ways, hold the rest: each response must point the way physics says, by a real share of the change in demand | paired runs |
 | `causality` | nothing may change before an added storm, and runoff must answer it after | paired runs |
@@ -125,6 +128,15 @@ Every one is binary.
 | `scaling_monotonicity` | peak lag does not materially reverse and grows by a resolvable amount across catchment scales | paired runs, a geometry ladder |
 | `rating_monotonic` | stage does not fall against its running maximum as the abscissa rises: equal-count bin medians are taken over the abscissa and the summed running-maximum deficit is compared with an explicit `tolerance` when one is given, and otherwise with 8% of the rating's span. The share is that large because a stage read off a store is hysteretic by construction, and its binned rating dips below its own running maximum by a visible fraction of the span for that reason alone | one run |
 | `rating_loop` | where the gauge loops against the reach's store, the loop must be small enough to be noise or run the right way: at the same storage the rising limb sits lower than the falling one. A single-valued rating, or a loop below `min_loop_m` with an inconsistent sign across bins, is read as "no loop" and passes | one run |
+| `uniform_flow_friction` | on each labelled low, medium and high steady plateau, the reported discharge and stage must make Manning friction slope agree with the declared bed slope for the explicit rectangular section; CV and first-to-last-quarter trend gates reject blocks that have not converged | one run, three labelled plateaus |
+| `wave_celerity_bounds` | paired short/long reaches estimate transient celerity from response-centroid delay; celerity must be downstream, within the declared relative allowance of rectangular Manning dQ/dA, and increase by more than the configured state-separation margin from low to medium to high flow | paired runs, three hydraulic states × two reach lengths |
+| `froude_subcritical` | the share of scored steps on which the reach went supercritical (`Fr > 1 + tolerance`) stays within `max_exceed_fraction`, with `Fr = abs(Q) / (w * d**1.5 * sqrt(g))` read from the model's own stage and discharge and the case's declared width, the depth being `stage - bed_elevation_m`; a step is excused only when no flow column the model reports shows water moving, so a zero written into `dis` while `mrro` still carries the water is scored on `mrro`, and a shallow depth is scored at the one-centimetre floor rather than skipped and a depth above `max_depth_m` is refused rather than scored; a model reporting a depth where the contract asks for a level is N/A (INCOMPATIBLE) rather than failed, a non-finite reading is failed rather than dropped out of the mask, and below `min_scored_fraction` steps carrying flow the case is degenerate and the criterion refuses to score | one run |
+
+`stage` is an elevation on a case-declared fixed datum. A criterion that forms
+water depth, or any ratio or power of the level, must include
+`bed_elevation_m` in `requires.static` and use the shared `depth_series(run)`
+helper; it may not infer a datum. A criterion that uses only differences of
+stage does not need the bed elevation because a fixed datum cancels.
 
 Picking a denominator for `closure` and `regime_transfer`:
 
@@ -133,6 +145,14 @@ Picking a denominator for `closure` and `regime_transfer`:
 | `sum_pr` | water budgets | not needed, precipitation is non-negative |
 | `sum_abs_rn` | energy budgets | required, net radiation crosses zero nightly |
 | `sum_inflow` | routing | not needed |
+
+`sum_inflow` reads the public forcing column `q_in`: prescribed river inflow
+in m3/s, positive into the routing control volume. Before comparing it with
+the suite's mm/day water fluxes and mm storages, `closure` converts each row
+to catchment-equivalent depth using `area_km2`; a probe using this denominator
+therefore also needs that static area. The probe must list `q_in` under
+`requires.forcing`, and an eligible model must actually consume it through
+`needs_forcing` or `uses_forcing`; see the /io contract in `AGENTS.md`.
 
 ### Labelled stretches
 
@@ -167,6 +187,43 @@ A probe whose expectation only holds over a long enough stretch, such as the
 sign of a response to warming, sets `case.min_window_days` and a submitted
 model's evaluation window is widened to at least that.
 
+By default every requested seed must be scoreable. If a criterion has a
+documented run-time precondition that can honestly exclude an individual seed,
+`case.min_scored_fraction` may allow partial coverage. The harness writes the
+coverage into the criterion message, and returns `N/A (INCOMPATIBLE)` when the
+scored share falls below the declared floor rather than letting a lucky
+minority decide the verdict.
+
+A criterion marks such a precondition by raising `CriterionIncompatibleError`,
+which `hydroturing.criteria` exports. The harness records that seed as
+`N/A (INCOMPATIBLE)` and leaves it out of the verdict. It is **not** a failure
+and **not** an error: the exception says the run is one this criterion cannot
+judge, which is a statement about the run rather than about the model's physics.
+`depth_series()` raises it, for instance, when the column a model reports is a
+depth where the contract asks for an elevation on the case's declared datum, and
+`uniform_flow_friction` raises it when a plateau never reached a steady state
+and no steady plateau failed.
+Archiving either as a violation would put a fault in the record that was never
+measured, and the reason travels with it — the harness keeps the message, so the
+archive says which precondition was missed rather than only that something was.
+
+The floor guards a **pass**, not a verdict. A criterion decides a seed is
+unscoreable by reading the model's own output, so the model chooses which
+seeds leave the sample, and the rule has to be asymmetric or the same move
+works in both directions: a model would buy a pass by excluding the seed it
+would lose on, and escape a violation by excluding enough seeds to fall under
+the floor. So a failure measured on a seed that **was** scored stands however
+few of them are left, and only a verdict that would otherwise pass is held to
+the floor. Set `min_scored_fraction` below 1 only where a seed can be lost for
+a reason the model does not control.
+
+The same holds inside a seed, for any part a criterion leaves out on the
+model's own output — a plateau, an event, a step. Either the part could not have
+shown the violation (a step with no flow cannot be supercritical), or leaving it
+out must cost the pass rather than buy it. `uniform_flow_friction` does the
+second: a failure on a steady plateau stands, and a skipped plateau with no
+failure makes the seed `N/A`.
+
 `invariance` takes `unchanged` (must be reported and must not move),
 `scaled` (must move by a factor) and `optional` (must not move *if the
 model reports it*), so a store a model lacks is not an invariance failure.
@@ -176,6 +233,20 @@ it alone, so adding a variant to a probe never silently changes what its
 existing criteria measure. Declaring variants without a paired criterion, or a
 paired criterion without variants, is rejected at load time rather than
 becoming a silent no-op.
+
+An ordinary precondition can opt into checking every variant with
+`all_variants: true`. The harness runs that criterion independently on each
+variant and reports the worst result; a failure with no numeric value remains a
+failure in the aggregate. Leave this option off when the criterion is meant to
+describe only the control, and do not use it on a paired criterion.
+
+Ordinary criteria may also set `phase: <label>`. The harness then gives the
+criterion the contiguous rows carrying that host-side `_phase` label, with the
+preceding row as its initial state. Without `phase`, the criterion sees the
+whole post-spinup record. Phase labels are stripped before the adapter runs, so
+they cannot become a model input. Use a phase only when the law is explicitly
+about that labelled stretch; otherwise the unscoped window should cover the
+entire generated record.
 
 Draw everything that comes from the seed before you branch on the variant. Two
 variants that differ in the weather as well as in the perturbation cannot
@@ -222,6 +293,7 @@ baselines:
     reference_leaky: closure
     reference_cheater: state_bounds
     reference_degenerate: non_degenerate
+  must_fail_only: [reference_leaky]
 ```
 
 `must_pass` guards against tolerance drift: if a physical model ever fails
@@ -236,6 +308,19 @@ daily step because its partition answers intensity. A probe pull request is
 run against these four before anything else. `must_fail` pins which criterion does
 the catching, so a probe cannot appear to work while catching things for the
 wrong reason.
+
+`must_fail` asks only that the declared criterion be *among* those the control
+trips, because a broken reference usually picks up a second one as a side
+effect and that says nothing about the probe: seventeen of the suite's
+sixty-six controls do, `reference_degenerate` tripping `et_plausible` beside
+`non_degenerate` among them. Where a control's isolation is the point,
+list it under `must_fail_only` and the gate requires it to trip that criterion
+and no other. Use it for a control that exists to separate one failure mode
+from another — `mass/snowpack-mass-closure` names `reference_snow_bypass`,
+which shows water leaving the snowpack while the catchment budget still
+closes, and would stop showing it if it also tripped `snowpack_response`.
+A name in the list that is not a `must_fail` baseline is a spec error, so a
+typo cannot quietly restore the loose rule.
 
 A probe whose verdict rests on a forcing or static input that none of the four
 consumes still needs a physical model in `must_pass`. An exact
@@ -279,6 +364,9 @@ The reference models available today:
 | `reference_leaky` | hides a silent 15% sink | `closure`, `counterfactual_response` |
 | `reference_cheater` | solves for storage as whatever balances the budget; runoff is a fixed share of rain | `state_bounds`, `response_sign`, `counterfactual_response` |
 | `reference_degenerate` | evaporates all precipitation, produces no runoff | `non_degenerate`, `counterfactual_response`, `response_sign` |
+| `reference_datum_exact` | shifts all absolute groundwater heads and elevations together while preserving hydraulic differences | `datum_flux_invariance` |
+| `reference_datum_dependent` | makes exchange depend on the numerical datum rather than hydraulic differences | `datum_flux_invariance` |
+| `reference_zero_exchange` | reports no groundwater-river exchange despite active forcing | `datum_flux_invariance` |
 | `reference_in_sample` | exact in range, leaks outside it | `regime_transfer` |
 | `reference_calendar` | recession drifts with the calendar year | `invariance` |
 | `reference_fixed_step` | treats every row as a day whatever the step is | `resolution_invariance` |
@@ -298,6 +386,9 @@ The reference models available today:
 | `reference_driven_exchange` | a head-driven boundary exchange against a constant catchment head; must pass `mass/exchange-response` | nothing, it must pass |
 | `reference_evolving_exchange` | the same boundary against a catchment head that moves, five-day time constant; must pass | nothing, it must pass |
 | `reference_recharge_exchange` | the evolving boundary on a losing catchment that drains half its runoff through it, storativity 1 mm/m; must pass | nothing, it must pass |
+| `reference_recharge_order_exact` | the exact daily solution of one aquifer cell draining to a river; must pass `mass/aquifer-recharge-ordering` | nothing, it must pass |
+| `reference_recharge_blind` | ignores `gw_recharge`, so its own budget no longer closes | `aquifer_recharge_ordering` |
+| `reference_recharge_overshoot` | sends 120% of a recharge day to the river, so its storage falls below the control's | `aquifer_recharge_ordering` |
 | `reference_noise_sink` | declares the prescribed head and never reads it; its exchange is the day's accounting error | `exchange_response` |
 | `reference_token_exchange` | the noise sink plus a head term a million times too small to be anything but a token | `exchange_response` |
 | `reference_steady_sink` | the same token over a steady sink rather than a noisy one, which a share of the exchange's variation cannot see | `exchange_response` |
@@ -305,10 +396,16 @@ The reference models available today:
 | `reference_snyder_router` | consumes public catchment geometry and routes rain with a conservative triangular unit hydrograph whose peak follows the duration-corrected Snyder lag from the excess-rainfall centroid | nothing, it must pass the routing-lag probe |
 | `reference_instant_router` | accepts the geometry but returns runoff in the rainfall row at every scale | `lag_time_bounds` |
 | `reference_inverse_router` | uses individually plausible lags that reverse once as catchment scale grows | `scaling_monotonicity` |
-| `reference_rating` | the bucket with a real rating curve: yield enters a shallow floodplain and a deep channel reservoir, and the stage is the depth the channel's volume makes in a fixed bed | must pass `momentum/stage-discharge-monotonic` |
+| `reference_rating` | the bucket with a real rating curve: yield enters a shallow floodplain and a deep channel reservoir, and the stage is the depth the channel's volume makes in a fixed bed, reported above the case's declared datum | must pass `momentum/stage-discharge-monotonic` |
 | `reference_rating_drift` | derives its stage from a slowly decaying running maximum of discharge (`peak = max(q, 0.997 * peak)` per day), so the gauge ratchets up with each flood far faster than it relaxes | `rating_monotonic` |
 | `reference_rating_inverted` | reads the loop backwards, high while the flood is arriving and low once it is leaving | `rating_loop` |
 | `reference_flat_stage` | reports a constant stage, so there is no rating and no loop | `non_degenerate` |
+| `reference_uniform_flow` | computes exact rectangular Manning normal depth from the declared geometry | must pass `momentum/uniform-flow-friction-consistency` |
+| `reference_saint_venant` | advances the one-dimensional continuity and momentum equations from a non-equilibrium state with finite-volume fluxes and Manning friction; its sub-daily path propagates transients continuously and contains no normal-depth lookup | must pass `momentum/uniform-flow-friction-consistency` and `momentum/wave-celerity-bounds` |
+| `reference_fixed_celerity` | delays the prescribed discharge at a fixed 1 m/s for every hydraulic state | `wave_celerity_bounds` |
+| `reference_wrong_roughness` | computes its stage with Manning roughness 3% above the declared value, giving a 5.74% near-boundary friction residual | `uniform_flow_friction` |
+| `reference_wrong_slope` | computes its stage with bed slope 6% above the declared value, giving a 6% near-boundary friction residual | `uniform_flow_friction` |
+| `reference_shallow_rating` | draws its gauge for a section five times the declared width: the right depth for a different channel, with its water conserved exactly and its rating still single-valued and monotone | `froude_subcritical`, and `uniform_flow_friction` at steady flow |
 | `reference_coupled` | the bucket with snow sublimation and a surface energy budget; every kilogram converted at the latent heat of the phase it actually underwent | nothing, it must pass the energy probes |
 | `reference_soil_heat` | a synthetic fixed-layer fixture with conductive boundary fluxes and temperature integrated consistently | nothing, it must pass `soil_heat_storage` |
 | `reference_frozen_soil` | keeps the conductive fluxes but reports a constant soil temperature | `soil_heat_storage` |
@@ -325,6 +422,8 @@ The reference models available today:
 | `reference_radiative` | the coupled reference with a skin: temperature from the sensible flux through a fixed conductance, upward longwave from that skin at the given emissivity | nothing, it must pass the radiation probe |
 | `reference_air_emitter` | reports the skin's temperature but emits at the air's, reflected sky unchanged | `radiative_identity` |
 | `reference_no_reflection` | reports emission alone as the total upward longwave, the reflected sky left out | `radiative_identity` |
+| `reference_snow_bypass` | sends part of snowfall directly to soil around the snowpack while preserving catchment mass | `closure` |
+| `reference_snowless` | stores no snow and passes precipitation directly through the snow module | `snowpack_response` |
 
 The three soil-heat references require incoming `rsds` and `rlds`, `tas`,
 `pr`, and explicit layer depth, areal heat capacity and initial temperature.

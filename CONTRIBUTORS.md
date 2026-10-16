@@ -22,9 +22,12 @@ long.
 | `mass/causality` | Zhi Li (CU Boulder) |
 | `mass/dry-down` | Zhi Li (CU Boulder) |
 | `mass/steady-state` | Zhi Li (CU Boulder) |
+| `mass/spinup-cycle-invariance` | Kaihao Long (School of Geography and Planning, Sun Yat-sen University, Guangzhou 510006, China) |
 | `mass/multi-decadal-drift` | Bing Li (Independent Researcher) |
 | `mass/extreme-rain` | Zhi Li (CU Boulder) |
 | `mass/runoff-bounds` | Zhi Li (CU Boulder) |
+| `mass/groundwater-datum-invariance` | Zhenjiang Wu (Xi’an Jiaotong University) |
+| `mass/aquifer-recharge-ordering` | Zhenjiang Wu (Institute of Global Environmental Change, Xi’an Jiaotong University) |
 | `mass/area-invariance` | Zhi Li (CU Boulder) |
 | `mass/response-nonnegativity` | Zhi Li (CU Boulder) |
 | `mass/antecedent-monotonicity` | Zhi Li (CU Boulder) |
@@ -33,6 +36,7 @@ long.
 | `mass/precipitation-counterfactual` | Qingyi Yang (Politecnico di Milano) |
 | `mass/human-abstraction` | Yuanhang Liu (Independent Researcher) |
 | `mass/extreme-event-closure` | Taiqi Lian (Laboratory of Catchment Hydrology and Geomorphology, École Polytechnique Fédérale de Lausanne (EPFL), 1951 Sion, Switzerland) |
+| `mass/snowpack-mass-closure` | Jinlong Hu (State Key Laboratory of Earth Surface Processes and Disaster Risk Reduction, Faculty of Geographical Science, Beijing Normal University, Beijing, China) |
 | `mass/gw-sw-exchange-consistency` | Yaji Wang (University of Illinois Urbana-Champaign) |
 | `energy/pet-consistency` | Zhi Li (CU Boulder) |
 | `energy/latent-heat-et-consistency` | Changming Li (SCUT) |
@@ -45,6 +49,10 @@ long.
 | `momentum/routing-lag-consistency` | Binlan Zhang (Institute of Mountain Hazards and Environment, Chinese Academy of Sciences, Chengdu, China) |
 | `momentum/stage-discharge-monotonic` | Yuanhang Liu (Independent Researcher) |
 | `mass/exchange-response` | Songkun Yan (University of Oklahoma) |
+| `momentum/uniform-flow-friction-consistency` | Mofan Zhang (Department of Civil and Environmental Engineering, Stanford University, Stanford, CA, USA) |
+| `momentum/froude-regime` | Yuanhang Liu (Independent Researcher) |
+
+| `momentum/wave-celerity-bounds` | Jingzhi Chen (Department of Computer Science and Engineering, State University of New York at Buffalo, Buffalo, NY, USA) |
 
 ## Models
 

@@ -148,6 +148,12 @@
           "minimum": 1,
           "maximum": 25
         },
+        "min_scored_fraction": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "maximum": 1,
+          "description": "Minimum fraction of requested seeds that must produce criterion results. Below this floor the probe is N/A rather than being decided by too few compatible seeds. Defaults to 1."
+        },
         "timestep": {
           "type": "string",
           "enum": [
@@ -266,6 +272,14 @@
             "type": "string"
           },
           "description": "Map of reference model -> the criterion name it must trip. Pins which criterion does the catching."
+        },
+        "must_fail_only": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "uniqueItems": true,
+          "description": "Subset of must_fail whose controls must trip their declared criterion and no other. Use it where a control's isolation is the point: it is what separates one failure mode from another. Controls left out keep the default rule, which asks only that the declared criterion be among those tripped."
         }
       }
     },

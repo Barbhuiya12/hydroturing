@@ -27,7 +27,7 @@ SCHEMA_DIR = REPO_ROOT / "schemas"
 # `sbl` is a component of `evspsbl`, never an addition to it. `rlus` is the
 # total upward longwave radiation, surface emission plus reflected downward
 # longwave, positive away from the surface.
-FLUX_VARS = ("pr", "evspsbl", "mrro", "dis", "gwex", "gw_sw_exchange", "gw_to_sw", "sw_to_gw", "gw_boundary", "sbl", "hfls", "hfss", "hfg", "rlus", "hfg_bottom")
+FLUX_VARS = ("pr", "evspsbl", "mrro", "dis", "gwex", "gw_sw_exchange", "gw_to_sw", "sw_to_gw", "gw_boundary", "sbl", "snm", "hfls", "hfss", "hfg", "rlus", "hfg_bottom")
 STATE_VARS = ("mrso", "snw", "canopy", "gw", "channel")
 # Keep diagnostics out of STATE_VARS: closure sums every reported store,
 # and temperature must never be added to water storage.
@@ -72,6 +72,7 @@ UNITS = {
     # that reports it is stating which part of its evaporation left the surface
     # as ice, which is the only way a criterion can know without guessing.
     "sbl": "mm day-1",
+    "snm": "mm day-1",
     "hfls": "W m-2",
     "hfss": "W m-2",
     "hfg": "W m-2",
@@ -163,6 +164,7 @@ TRUSTED_SUBPROCESS_MODELS = {
     "reference_thirsty",
     "reference_stuck_router",
     "reference_leaky_router",
+    "reference_shallow_rating",
     "reference_area_leak",
     "reference_overshooting",
     "reference_sublimating",
@@ -183,11 +185,24 @@ TRUSTED_SUBPROCESS_MODELS = {
     "reference_driven_exchange",
     "reference_evolving_exchange",
     "reference_recharge_exchange",
+    "reference_recharge_order_exact",
+    "reference_recharge_blind",
+    "reference_recharge_overshoot",
     "reference_noise_sink",
     "reference_token_exchange",
     "reference_steady_sink",
+    "reference_snow_bypass",
+    "reference_snowless",
     "reference_exchange_sign_error",
     "reference_exchange_exact",
+    "reference_datum_exact",
+    "reference_datum_dependent",
+    "reference_zero_exchange",
+    "reference_uniform_flow",
+    "reference_saint_venant",
+    "reference_fixed_celerity",
+    "reference_wrong_roughness",
+    "reference_wrong_slope",
 }
 
 
@@ -256,6 +271,10 @@ class ProbeSpec:
     # or a dry-down; such a probe asks for at least a year, and a submitted
     # model's window is widened to it.
     min_window_days: int = 0
+    # A run-time precondition may make an individual seed unscoreable. Require
+    # this share of the requested seeds to remain before a verdict can be
+    # decided; probes opt into partial coverage explicitly.
+    min_scored_fraction: float = 1.0
     # Missing diagnostic outputs cause INCOMPLETE, as for missing fluxes.
     requires_diagnostics: tuple[str, ...] = ()
     # Reach-indexed variables requested from output/routing.csv.
@@ -265,6 +284,12 @@ class ProbeSpec:
     # against values it never read and is INCOMPATIBLE instead.
     requires_forcing: tuple[str, ...] = ()
     requires_static: tuple[str, ...] = ()
+
+    # Controls that must trip their declared criterion and nothing else.
+    # Most broken references trip a second criterion as a side effect and
+    # that is harmless, but a control whose whole job is to separate one
+    # failure mode from another stops doing it the moment it trips two.
+    must_fail_only: tuple[str, ...] = ()
 
     @property
     def required_vars(self) -> tuple[str, ...]:
@@ -445,6 +470,13 @@ def load_probe(path: str | Path) -> ProbeSpec:
                 f"'{criterion}', which this probe does not define"
             )
 
+    for model in raw["baselines"].get("must_fail_only", []):
+        if model not in raw["baselines"]["must_fail"]:
+            raise SpecError(
+                f"{spec_file}: baselines.must_fail_only names '{model}', which "
+                "is not one of this probe's must_fail baselines"
+            )
+
     variants = tuple(case.get("variants", []))
     _check_variants(spec_file, criteria, variants)
 
@@ -521,12 +553,14 @@ def load_probe(path: str | Path) -> ProbeSpec:
         variant_timesteps=variant_timesteps,
         variant_selection=case.get("variant_selection", "all"),
         min_window_days=int(case.get("min_window_days", 0)),
+        min_scored_fraction=float(case.get("min_scored_fraction", 1.0)),
         max_output_mb=case.get("max_output_mb", 5.0),
         max_runtime_s=case.get("max_runtime_s", 120.0),
         variants=tuple(case.get("variants", [])),
         criteria=tuple(criteria),
         must_pass=tuple(raw["baselines"]["must_pass"]),
         must_fail=dict(raw["baselines"]["must_fail"]),
+        must_fail_only=tuple(raw["baselines"].get("must_fail_only", [])),
         provenance=raw.get("provenance", ""),
         path=directory,
     )
