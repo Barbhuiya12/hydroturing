@@ -29,7 +29,7 @@ def routing_probe(base_probe):
         requires_fluxes=(),
         requires_states=(),
         requires_diagnostics=(),
-        requires_routing=("q_in", "q_out", "channel_storage"),
+        requires_routing=("reach_q_in", "q_out", "channel_storage"),
         requires_static=("routing_network",),
         variants=(),
     )
@@ -80,14 +80,14 @@ def _routing_table(case):
                 {
                     "time": time.strftime("%Y-%m-%d"),
                     "reach_id": "A",
-                    "q_in": 2.0,
+                    "reach_q_in": 2.0,
                     "q_out": 1.0,
                     "channel_storage": 86400.0,
                 },
                 {
                     "time": time.strftime("%Y-%m-%d"),
                     "reach_id": "B",
-                    "q_in": 3.0,
+                    "reach_q_in": 3.0,
                     "q_out": 2.0,
                     "channel_storage": 86400.0,
                 },
@@ -111,7 +111,7 @@ def test_routing_declarations_load_and_old_defaults_remain_empty(
     base_probe, tmp_path
 ):
     probe_dir = tmp_path / "mass" / "routing-contract-test"
-    variables = ["q_in", "q_out", "channel_storage"]
+    variables = ["reach_q_in", "q_out", "channel_storage"]
     _write_probe(probe_dir, base_probe, variables)
     probe = load_probe(probe_dir)
 
@@ -154,17 +154,17 @@ def test_unknown_routing_variable_is_rejected(base_probe, tmp_path, kind):
 def test_stage_requests_routing_path_and_units(case, routing_probe, tmp_path):
     model = replace(
         registry.find_model("reference_bucket"),
-        emits_routing=("q_in", "q_out", "channel_storage"),
+        emits_routing=("reach_q_in", "q_out", "channel_storage"),
     )
     request = json.loads(stage(tmp_path, case, routing_probe, model).read_text())
 
     assert request["request"]["routing"] == [
-        "q_in",
+        "reach_q_in",
         "q_out",
         "channel_storage",
     ]
     assert request["output"]["routing"] == "output/routing.csv"
-    assert request["units"]["q_in"] == "m3 s-1"
+    assert request["units"]["reach_q_in"] == "m3 s-1"
     assert request["units"]["q_out"] == "m3 s-1"
     assert request["units"]["channel_storage"] == "m3"
 
@@ -174,14 +174,14 @@ def test_stage_omits_routing_for_nonrouting_probe(
 ):
     model = replace(
         registry.find_model("reference_bucket"),
-        emits_routing=("q_in",),
+        emits_routing=("reach_q_in",),
     )
     request = json.loads(
         stage(tmp_path, case, base_probe, model).read_text()
     )
 
     assert request["request"]["routing"] == []
-    assert "q_in" not in request["units"]
+    assert "reach_q_in" not in request["units"]
 
 
 def test_valid_routing_table_roundtrips(case, routing_probe, tmp_path):
@@ -285,8 +285,8 @@ def test_routing_values_must_be_finite(
     case, routing_probe, tmp_path, bad_value
 ):
     table = _routing_table(case)
-    table["q_in"] = table["q_in"].astype(object)
-    table.loc[0, "q_in"] = bad_value
+    table["reach_q_in"] = table["reach_q_in"].astype(object)
+    table.loc[0, "reach_q_in"] = bad_value
     _write_outputs(tmp_path, case, table)
 
     with pytest.raises(ProtocolError, match="non-finite"):
@@ -298,7 +298,7 @@ def test_verify_adapter_skips_routing_on_nonrouting_probe(
 ):
     model = replace(
         registry.find_model("reference_bucket"),
-        emits_routing=("q_in",),
+        emits_routing=("reach_q_in",),
     )
 
     result = verify_adapter_contract(
@@ -328,7 +328,7 @@ def test_verify_adapter_checks_routing_on_network_probe(
     )
     model = replace(
         registry.find_model("reference_bucket"),
-        emits_routing=("q_in",),
+        emits_routing=("reach_q_in",),
     )
 
     with pytest.raises(ProtocolError, match="routing.csv"):
@@ -344,7 +344,7 @@ def test_verify_adapter_prefers_routing_probe(
 
     model = replace(
         registry.find_model("reference_bucket"),
-        emits_routing=("q_in",),
+        emits_routing=("reach_q_in",),
     )
     attempted = []
 
