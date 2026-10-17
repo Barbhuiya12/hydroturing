@@ -98,11 +98,10 @@ the benchmark's radiation.
 
 The two daily energy probes, `energy/latent-heat-et-consistency` and
 `energy/evaporative-partition`, drive `energy_closure`, and on the partition
-probe `partition_shift`, with `rn` but do not require it, so they still score an adapter that computes
-its own sky. Whether those `rn`-driven results apply to such an adapter is
-unresolved, and daily averaging or the 5% tolerance does not remove the input
-mismatch. Treat them as archived scores whose applicability is not
-established.
+probe `partition_shift`, with `rn` but do not require it, so they still score
+an adapter that computes its own sky. Daily averaging and the 5% tolerance do
+not remove the input mismatch, so treat those results as archived scores whose
+applicability is not established; [#160](https://github.com/Flood-Lab/HydroTuring/issues/160) tracks the fix.
 
 Routing probes may supply `q_in`, a prescribed river inflow in m3/s, positive
 into the routing control volume. This is already a volumetric discharge: do

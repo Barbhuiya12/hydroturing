@@ -286,10 +286,10 @@ compatibility from a small residual or turn a large residual into N/A.
 The daily `energy/latent-heat-et-consistency` and `energy/evaporative-partition`
 also drive `energy_closure`, and on the partition probe `partition_shift`,
 with `rn`, but do not list it under `requires.forcing`, so they still score an
-adapter that computes its own sky. The applicability of those `rn`-driven
-results to such an adapter is not established.
-Daily averaging and the 5% tolerance do not remove the input mismatch, so
-treat those results as archived scores whose applicability is not established.
+adapter that computes its own sky. Daily averaging and the 5% tolerance do
+not remove the input mismatch, so for such an adapter treat those results as
+archived scores whose applicability is not established;
+[#160](https://github.com/Flood-Lab/HydroTuring/issues/160) tracks the fix.
 
 A probe's `requires.forcing` and `requires.static` accept either `needs_*`
 or `uses_*`. For example, `energy/radiation-consistency` requires consumption

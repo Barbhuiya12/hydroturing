@@ -448,20 +448,22 @@ do not list `rn` under `requires.forcing`, so they still score SUMMA and
 their archived rows are unchanged. Their `rn`-driven results, the
 `energy_closure` passes and the `partition_shift` failure, are scores against
 a net radiation SUMMA does not take as its own; whether they apply to this
-adapter is not yet settled (see the
-[scope comment](https://github.com/Flood-Lab/HydroTuring/pull/146#issuecomment-5859801574)).
+adapter is not yet settled (tracked in
+[#160](https://github.com/Flood-Lab/HydroTuring/issues/160)).
 Averaging over a day and the 5% tolerance do not remove that mismatch.
 `flux_identity` does not read `rn`, and its failures below still describe the
 current adapter.
 
-Two ways to settle it have been discussed; neither is adopted:
+Two ways to settle it have been discussed:
 
 - Requiring `rn` for the whole of each daily probe would make both N/A for
   SUMMA, giving 9 of 21, and would drop its scored `flux_identity` failures.
 - A per-criterion input prerequisite would set aside only the `rn`-driven
   criteria and keep those failures, but needs a separate harness design.
 
-The choice needs the view of Changming Li, who authored both daily probes.
+[#160](https://github.com/Flood-Lab/HydroTuring/issues/160) proposes the first, and Changming Li,
+who authored both daily probes, supports it. Until it lands, the archived
+rows stand as described above.
 
 Every gate seed was rerun with SUMMA's own series kept (`SUMMA_HT_DIAG=1`).
 Each energy criterion is then given twice: as scored, against the probe's
