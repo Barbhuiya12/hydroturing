@@ -245,7 +245,7 @@ def _read_routing(
     if not path.exists():
         raise ProtocolError(f"adapter did not write required {ROUTING_CSV}")
    
-    table = pd.read_csv(path, dtype={REACH_COL: str})
+    table = pd.read_csv(path, dtype={REACH_COL: str}, keep_default_na=False)
     required_columns = [TIME_COL, REACH_COL, *probe.requires_routing]
     missing = [
         column for column in required_columns if column not in table.columns
