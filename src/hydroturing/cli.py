@@ -170,7 +170,7 @@ def cmd_list(args) -> int:
     models = registry.all_models()
     print(f"probes ({len(probes)}):")
     for p in probes:
-        req = ", ".join(p.required_vars)
+        req = ", ".join((*p.required_vars, *p.requires_routing))
         steps = "/".join(p.timesteps)
         print(f"  {p.id:<34} {p.law:<9} {p.track:<10} {steps:<10} seeds={p.n_seeds}  needs: {req}")
     print(f"\nmodels ({len(models)}):")
@@ -179,9 +179,10 @@ def cmd_list(args) -> int:
         days = resolve_window_days(m, matching) if matching else m.window_days
         window = "full" if days is None else f"{days}d"
         steps = "/".join(m.timesteps)
+        emits = ", ".join((*m.emitted, *m.emits_routing))
         print(
             f"  {m.name:<24} v{m.version:<8} runner={m.runner:<11} {steps:<22} "
-            f"window={window:<5} emits: {', '.join(m.emitted)}"
+            f"window={window:<5} emits: {emits}"
         )
     return 0
 
