@@ -624,7 +624,7 @@ def load_model(path: str | Path) -> ModelManifest:
     if unknown:
         raise SpecError(f"{spec_file}: unknown variables in emits: {unknown}")
 
-     if raw["emits"].get("routing") and "routing_network" not in {
+    if raw["emits"].get("routing") and "routing_network" not in {
         *raw.get("needs_static", []),
         *raw.get("uses_static", []),
     }:
