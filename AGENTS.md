@@ -312,12 +312,18 @@ emits:
   fluxes: [mrro, dis]
   states: [channel]
   routing: [reach_q_in, q_out, channel_storage]
+needs_static: [routing_network]
 ```
 
 Variables declared under `emits.routing` belong in `routing.csv`, not in
 `result.csv`, `emits.fluxes` or `emits.states`. Declaring them means the
 adapter must write the requested long table; do not construct `reach_q_in` or
 `channel_storage` from a budget residual merely to satisfy the contract.
+
+
+A model that declares `emits.routing` must also list `routing_network` in
+`needs_static` or `uses_static`; otherwise the manifest is invalid because the
+routing output has no declared network topology.
 
 
 Every probe that needs more than that will be `N/A` with reason
