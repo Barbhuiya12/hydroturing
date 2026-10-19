@@ -272,6 +272,27 @@ def test_leading_zero_reach_ids_are_preserved(
     assert set(result.routing["reach_id"]) == {"007", "012"}
 
 
+@pytest.mark.parametrize(
+    "reach_id",
+    ["NA", "N/A", "n/a", "nan", "None", "null", "NULL"],
+)
+def test_na_like_reach_ids_are_preserved(
+    case, routing_probe, tmp_path, reach_id
+):
+    case = replace(
+        case,
+        static={"routing_network": {"reaches": [reach_id, "B"]}},
+    )
+    table = _routing_table(case)
+    table["reach_id"] = table["reach_id"].replace({"A": reach_id})
+    _write_outputs(tmp_path, case, table)
+
+    result = read_result(tmp_path, case, routing_probe, 0.0)
+
+    assert result.routing is not None
+    assert set(result.routing["reach_id"]) == {reach_id, "B"}
+
+
 def test_missing_required_routing_file_is_rejected(case, routing_probe, tmp_path):
     _write_outputs(tmp_path, case)
     with pytest.raises(ProtocolError, match="required output/routing.csv"):
