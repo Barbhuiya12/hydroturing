@@ -72,7 +72,12 @@ emits:
   fluxes: [mrro, dis]
   states: [channel]
   routing: [reach_q_in, q_out, channel_storage]
+needs_static: [routing_network]
 ```
+
+A model that declares `emits.routing` must also list `routing_network` in
+`needs_static` or `uses_static`, so its adapter has the network topology that
+defines the declared reaches.
 
 Variables declared under `emits.routing` belong in `output/routing.csv`, not
 `output/result.csv`. The harness requests them only on a probe that declares
