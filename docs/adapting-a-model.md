@@ -84,6 +84,13 @@ Variables declared under `emits.routing` belong in `output/routing.csv`, not
 `requires.routing` and supplies `routing_network.reaches` in `static.json`.
 The routing table contains one row for every forcing time and declared reach.
 
+`reach_q_in` is the interval-mean rate of total inflow into the reach control
+volume, including upstream, lateral, and prescribed boundary inflows, and is
+positive into the reach. `q_out` is the interval-mean flow across the reach's
+downstream boundary, positive downstream and negative for reverse or backwater
+flow. `channel_storage` is the absolute end-of-step channel water volume and
+excludes land-surface, soil, groundwater, floodplain, and overland storage.
+
 The `stage` diagnostic is a water-surface elevation in metres on the fixed
 vertical datum declared by the case. `bed_elevation_m` is the rigid reach bed
 on that same datum, so water depth is `stage - bed_elevation_m` at every step.
