@@ -68,6 +68,7 @@ def _write_model(path, routing):
         "entrypoint": ["python", "adapter.py"],
         "timestep": "PT1D",
         "emits": {"fluxes": [], "states": [], "routing": routing},
+        "needs_static": ["routing_network"],
     }
     (path / "model.yaml").write_text(yaml.safe_dump(manifest))
 
@@ -134,6 +135,17 @@ def test_routing_probe_must_require_network(base_probe, tmp_path):
 
     with pytest.raises(SpecError, match="routing_network"):
         load_probe(path)
+
+
+def test_routing_model_must_declare_network(tmp_path):
+    path = tmp_path / "routing_model"
+    _write_model(path, ["q_out"])
+    raw = yaml.safe_load((path / "model.yaml").read_text())
+    raw.pop("needs_static")
+    (path / "model.yaml").write_text(yaml.safe_dump(raw))
+
+    with pytest.raises(SpecError, match="routing_network"):
+        load_model(path)
 
 
 @pytest.mark.parametrize("kind", ["probe", "model"])
