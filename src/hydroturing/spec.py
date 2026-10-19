@@ -624,6 +624,15 @@ def load_model(path: str | Path) -> ModelManifest:
     if unknown:
         raise SpecError(f"{spec_file}: unknown variables in emits: {unknown}")
 
+     if raw["emits"].get("routing") and "routing_network" not in {
+        *raw.get("needs_static", []),
+        *raw.get("uses_static", []),
+    }:
+        raise SpecError(
+            f"{spec_file}: emits.routing also needs needs_static or "
+            "uses_static to include routing_network"
+        )
+
     declared = raw["timestep"]
     timesteps = tuple(declared) if isinstance(declared, list) else (declared,)
     if len(set(timesteps)) != len(timesteps):
