@@ -217,9 +217,9 @@ numbers in both runs; keep it that way and do not reseed from the clock.
 | `evspsbl` | evapotranspiration | mm/day |
 | `mrro` | total runoff | mm/day |
 | `dis` | river discharge | m3/s |
-| `reach_q_in` | interval-mean inflow to the identified reach for the row's time interval; reach-indexed in `routing.csv`, never a catchment-average flux | m3/s |
-| `q_out` | interval-mean outflow from the identified reach for the row's time interval; reach-indexed in `routing.csv`, never a catchment-average flux | m3/s |
-| `channel_storage` | absolute water volume stored in the identified reach at the end of the row's time interval; reach-indexed in `routing.csv`, not a tendency and not catchment-average `channel` storage | m3 |
+| `reach_q_in` | interval-mean total inflow into the identified reach control volume, including upstream, lateral, and prescribed boundary inflows; positive into the reach; reach-indexed in `routing.csv`, never a catchment-average flux | m3/s |
+| `q_out` | interval-mean flow across the identified reach's downstream boundary; positive downstream and negative for reverse or backwater flow; reach-indexed in `routing.csv`, never a catchment-average flux | m3/s |
+| `channel_storage` | absolute water volume stored in the routed river channel of the identified reach at the end of the row's time interval; excludes land-surface, soil, groundwater, floodplain, and overland storage; reach-indexed in `routing.csv`, not a tendency and not catchment-average `channel` storage | m3 |
 | `gwex` | a declared exchange with the outside: regional groundwater, inter-basin transfer; positive into the catchment | mm/day |
 | `gw_sw_exchange` | net river-aquifer exchange, positive into the aquifer; unlike `gwex`, this moves water between two stores inside the control volume (`gw` and `channel`), so it is never added to `gwex` or counted as a `closure` source | mm/day |
 | `gw_to_sw` | groundwater-to-river exchange component: the aquifer losing to the river, so it is never positive; a component of `gw_sw_exchange`, not of `gwex`, and not an addition to it | mm/day |
