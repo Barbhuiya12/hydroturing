@@ -95,6 +95,33 @@ class Case:
         return frame.iloc[self.spinup_steps :].reset_index(drop=True)
 
 
+def _routing_reaches(case: Case) -> tuple[str, ...]:
+    """Return and validate the reach IDs declared by a routing case."""
+    network = case.static.get("routing_network")
+    if not isinstance(network, dict) or "reaches" not in network:
+        raise ValueError(
+            "routing probes require static.json routing_network.reaches"
+        )
+
+    reaches = network["reaches"]
+    if (
+        not isinstance(reaches, list)
+        or not reaches
+        or any(not isinstance(reach, str) or not reach for reach in reaches)
+    ):
+        raise ValueError(
+            "static.json routing_network.reaches must be a non-empty "
+            "list of non-empty string IDs"
+        )
+
+    declared = tuple(reaches)
+    if len(declared) != len(set(declared)):
+        raise ValueError(
+            "static.json routing_network.reaches contains duplicates"
+        )
+    return declared
+
+
 @dataclass
 class RunResult:
     """What a model returned for one case, after contract validation."""
@@ -114,6 +141,10 @@ class RunResult:
 
 def stage(io_dir: Path, case: Case, probe: ProbeSpec, model: ModelManifest) -> Path:
     """Write request.json and the read-only inputs. Returns the request path."""
+    if probe.requires_routing:
+        _routing_reaches(case)
+
+    
     (io_dir / "input").mkdir(parents=True, exist_ok=True)
     (io_dir / "output").mkdir(parents=True, exist_ok=True)
 
@@ -264,32 +295,8 @@ def _read_routing(
             f"{int(duplicate.sum())} duplicates"
         )
 
-    network = case.static.get("routing_network")
-    if not isinstance(network, dict) or "reaches" not in network:
-        raise ProtocolError(
-            "routing output requires static.json routing_network.reaches"
-        )
-
-    declared_reaches = network["reaches"]
-    if (
-        not isinstance(declared_reaches, list)
-        or not declared_reaches
-        or any(
-            not isinstance(reach, str) or not reach
-            for reach in declared_reaches
-        )
-    ):
-        raise ProtocolError(
-            "static.json routing_network.reaches must be a non-empty "
-            "list of non-empty string IDs"
-        )
-
-    expected_reaches = tuple(declared_reaches)
-    if len(expected_reaches) != len(set(expected_reaches)):
-        raise ProtocolError(
-            "static.json routing_network.reaches contains duplicates"
-        )
-
+    expected_reaches = _routing_reaches(case)
+   
     actual_reaches = set(table[REACH_COL])
     expected_set = set(expected_reaches)
     if actual_reaches != expected_set:
