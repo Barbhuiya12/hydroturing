@@ -85,6 +85,26 @@ Requirements:
 Determinism is not a nicety. A benchmark whose failures cannot be reproduced
 is unusable the first time a result is disputed.
 
+## Required variables
+
+`requires` names the inputs and outputs that the verdict depends on. Ask for
+only what the probe actually uses: a model that cannot supply a requested
+output is N/A with reason INCOMPLETE, not a physics failure.
+
+A reach-indexed routing probe declares its routing outputs separately from the
+catchment-level `fluxes` and `states`:
+
+```yaml
+requires:
+  routing: [reach_q_in, q_out, channel_storage]
+  static: [routing_network]
+```
+
+Its generator must supply `static["routing_network"]["reaches"]` as a
+non-empty list of unique, non-empty string IDs. The adapter writes the
+requested variables to `output/routing.csv`, with one row for every forcing
+time and declared reach.
+
 ## Criteria
 
 Each entry in `criteria` names a registered criterion and its parameters.
