@@ -144,7 +144,7 @@ def stage(io_dir: Path, case: Case, probe: ProbeSpec, model: ModelManifest) -> P
     if probe.requires_routing:
         _routing_reaches(case)
 
-    
+
     (io_dir / "input").mkdir(parents=True, exist_ok=True)
     (io_dir / "output").mkdir(parents=True, exist_ok=True)
 
@@ -275,7 +275,7 @@ def _read_routing(
     path = io_dir / ROUTING_CSV
     if not path.exists():
         raise ProtocolError(f"adapter did not write required {ROUTING_CSV}")
-   
+
     table = pd.read_csv(path, dtype={REACH_COL: str}, keep_default_na=False)
     required_columns = [TIME_COL, REACH_COL, *probe.requires_routing]
     missing = [
@@ -296,7 +296,7 @@ def _read_routing(
         )
 
     expected_reaches = _routing_reaches(case)
-   
+
     actual_reaches = set(table[REACH_COL])
     expected_set = set(expected_reaches)
     if actual_reaches != expected_set:
