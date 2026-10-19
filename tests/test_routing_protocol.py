@@ -196,6 +196,22 @@ def test_stage_omits_routing_for_nonrouting_probe(
     assert "reach_q_in" not in request["units"]
 
 
+def test_unrequested_routing_output_is_ignored(
+    case, routing_probe, tmp_path
+):
+    probe = replace(
+        routing_probe,
+        requires_routing=(),
+        requires_static=(),
+    )
+    case = replace(case, static={})
+    _write_outputs(tmp_path, case, _routing_table(case))
+
+    result = read_result(tmp_path, case, probe, 0.0)
+
+    assert result.routing is None
+
+
 def test_valid_routing_table_roundtrips(case, routing_probe, tmp_path):
     expected = _routing_table(case)
     _write_outputs(tmp_path, case, expected)
