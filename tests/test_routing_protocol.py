@@ -228,7 +228,7 @@ def test_routing_output_requires_declared_reaches(
     case = replace(case, static={})
     _write_outputs(tmp_path, case, _routing_table(case))
 
-    with pytest.raises(ProtocolError, match="routing_network.reaches"):
+    with pytest.raises(ValueError, match="routing_network.reaches"):
         read_result(tmp_path, case, routing_probe, 0.0)
 
 
@@ -249,8 +249,21 @@ def test_invalid_declared_reach_ids_are_rejected(
     )
     _write_outputs(tmp_path, case, _routing_table(case))
 
-    with pytest.raises(ProtocolError, match=message):
+    with pytest.raises(ValueError, match=message):
         read_result(tmp_path, case, routing_probe, 0.0)
+
+
+def test_stage_rejects_malformed_network(case, routing_probe, tmp_path):
+    case = replace(
+        case,
+        static={"routing_network": {"reaches": [1, 2]}},
+    )
+    model = registry.find_model("reference_bucket")
+
+    with pytest.raises(ValueError, match="string IDs"):
+        stage(tmp_path, case, routing_probe, model)
+
+    assert not (tmp_path / "request.json").exists()
 
 
 def test_leading_zero_reach_ids_are_preserved(
