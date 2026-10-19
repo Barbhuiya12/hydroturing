@@ -233,12 +233,13 @@ def _read_routing(
     probe: ProbeSpec,
 ) -> pd.DataFrame | None:
     """Read and validate the optional reach-indexed routing result."""
-    path = io_dir / ROUTING_CSV
-    if not path.exists():
-        if probe.requires_routing:
-            raise ProtocolError(f"adapter did not write required {ROUTING_CSV}")
+    if not probe.requires_routing:
         return None
 
+    path = io_dir / ROUTING_CSV
+    if not path.exists():
+        raise ProtocolError(f"adapter did not write required {ROUTING_CSV}")
+   
     table = pd.read_csv(path, dtype={REACH_COL: str})
     required_columns = [TIME_COL, REACH_COL, *probe.requires_routing]
     missing = [
