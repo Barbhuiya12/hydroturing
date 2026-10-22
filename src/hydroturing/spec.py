@@ -178,6 +178,9 @@ TRUSTED_SUBPROCESS_MODELS = {
     "reference_driven_exchange",
     "reference_evolving_exchange",
     "reference_recharge_exchange",
+    "reference_recharge_order_exact",
+    "reference_recharge_blind",
+    "reference_recharge_overshoot",
     "reference_noise_sink",
     "reference_token_exchange",
     "reference_steady_sink",
@@ -190,6 +193,7 @@ TRUSTED_SUBPROCESS_MODELS = {
     "reference_zero_exchange",
     "reference_uniform_flow",
     "reference_saint_venant",
+    "reference_fixed_celerity",
     "reference_wrong_roughness",
     "reference_wrong_slope",
 }
