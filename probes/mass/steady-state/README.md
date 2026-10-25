@@ -21,8 +21,8 @@ A year of ordinary weather, then three years in which every day brings
 differ only in the spinup year, so the catchment enters the constant
 stretch from different states and must settle to the same place. The last
 year is judged: every reported variable, every store included, must vary
-by less than 1 percent of its level, runoff must not exceed the rain and
-the declared inflow, and where evaporation is reported the budget must
+by less than 1 percent of its level, runoff must not exceed the rain, the
+declared inflow and whatever the stores released over the year, and where evaporation is reported the budget must
 balance to 1 percent of the rain, with the storage change over the year
 counted in it.
 
@@ -87,7 +87,7 @@ and the budget balanced to floating point.
 
 | Criterion | What it asserts |
 | --- | --- |
-| `steady_state` | in the last year nothing reported varies by more than 1 percent unless it is still approaching a level, runoff stays below the rain plus declared inflow, and rain plus declared exchange equal runoff, evaporation and the storage change where evaporation is reported |
+| `steady_state` | in the last year nothing reported varies by more than 1 percent unless it is still approaching a level, runoff stays below the rain plus declared inflow plus what the stores released, and rain plus declared exchange equal runoff, evaporation and the storage change where evaporation is reported |
 
 ## Baselines
 

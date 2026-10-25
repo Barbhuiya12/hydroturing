@@ -196,6 +196,17 @@ def test_steady_state_fails_a_store_drifting_at_a_constant_rate():
     assert "gw still varies" in result.message and "is not settling" in result.message
 
 
+def test_steady_state_lets_a_draining_store_run_off_above_the_rain():
+    """A deep store still settling from far above its level, with an 800-day
+    e-folding time, releases 3 to 5 mm/day in the judged year, so runoff
+    exceeds the rain while the budget closes over the release."""
+    result = _steady_with_store(lambda d: 10000.0 * np.exp(-d / 800.0))
+    assert result.passed, result.message
+    assert result.diagnostics["means"]["mrro"] > 2.5 * 1.01
+    assert result.diagnostics["storage_change"] < -2.0
+    assert abs(result.diagnostics["budget_residual"]) < 1e-9
+
+
 def test_steady_state_lets_declared_inflow_run_off():
     """Water a model declares as entering from outside can run off too, so
     runoff above the rain is not a fault while the budget closes over it."""

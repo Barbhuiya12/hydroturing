@@ -247,8 +247,8 @@ def steady_state(run: RunResult, probe: ProbeSpec, params: dict) -> CriterionRes
 
     Hold rain, temperature and demand constant long enough and every store
     reaches the level at which what comes in equals what goes out. From
-    then on nothing reported may vary, runoff cannot exceed what enters,
-    and where evaporation is reported, rain plus any declared exchange
+    then on nothing reported may vary, runoff cannot exceed what enters
+    and what the stores release, and where evaporation is reported, rain plus any declared exchange
     equals runoff, evaporation and the change in storage. A recurrent state
     that drifts, oscillates or keys on the calendar shows here and nowhere
     else.
@@ -318,23 +318,26 @@ def steady_state(run: RunResult, probe: ProbeSpec, params: dict) -> CriterionRes
     declared = 0.0
     if "gwex" in w.table.columns:
         declared = float(w.table["gwex"].to_numpy(dtype=float)[-rows:].mean())
-    # Water declared as entering from outside can run off too; water leaving
-    # is the budget's business, not this bound's.
-    inflow = rain + max(declared, 0.0)
-    if means["mrro"] > inflow + tolerance * rain:
+    storage_change = 0.0
+    for var in STEADY_STORES:
+        if var in w.table.columns:
+            store = w.table[var].to_numpy(dtype=float)
+            storage_change += float(store[-1] - store[-rows - 1]) / (rows * w.dt_days)
+    # Water declared as entering from outside can run off too, and so can
+    # water a store still settling releases; water leaving is the budget's
+    # business, not this bound's.
+    release = max(-storage_change, 0.0)
+    available = rain + max(declared, 0.0) + release
+    if means["mrro"] > available + tolerance * rain:
         failures.append(
             f"runs off {means['mrro']:.3f} mm/day under {rain:.3f} mm/day of rain"
             + (f" and {declared:.3f} mm/day of declared inflow" if declared > 0 else "")
+            + (f" and {release:.3f} mm/day released from storage" if release > 0 else "")
             + " at steady state"
         )
 
     residual = None
-    storage_change = 0.0
     if "evspsbl" in means:
-        for var in STEADY_STORES:
-            if var in w.table.columns:
-                store = w.table[var].to_numpy(dtype=float)
-                storage_change += float(store[-1] - store[-rows - 1]) / (rows * w.dt_days)
         residual = rain + declared - means["mrro"] - means["evspsbl"] - storage_change
         if abs(residual) > tolerance * rain:
             failures.append(
