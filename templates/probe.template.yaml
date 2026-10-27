@@ -53,12 +53,14 @@ description: >
 #! fluxes: pr, evspsbl, mrro, dis        (rates)
 #! states: mrso, snw, canopy             (absolute storages, never tendencies)
 #! diagnostics: ts                       (read by a criterion, never integrated)
+#! routing: reach_q_in, q_out, channel_storage  (reach-indexed outputs)
 #! forcing, static: case inputs the verdict rests on; a model must declare
 #!                  it consumes them (needs_* or uses_*) or it is
 #!                  N/A with reason INCOMPATIBLE
 requires:
   fluxes: [pr, evspsbl, mrro]
   states: [mrso, snw, canopy]
+  routing: []
 
 case:
   #! Must define generate(seed) -> (DataFrame, dict) and be deterministic.
