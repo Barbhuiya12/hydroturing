@@ -170,7 +170,7 @@ def cmd_list(args) -> int:
     models = registry.all_models()
     print(f"probes ({len(probes)}):")
     for p in probes:
-        req = ", ".join(p.required_vars)
+        req = ", ".join((*p.required_vars, *p.requires_routing))
         steps = "/".join(p.timesteps)
         print(f"  {p.id:<34} {p.law:<9} {p.track:<10} {steps:<10} seeds={p.n_seeds}  needs: {req}")
     print(f"\nmodels ({len(models)}):")
@@ -179,9 +179,10 @@ def cmd_list(args) -> int:
         days = resolve_window_days(m, matching) if matching else m.window_days
         window = "full" if days is None else f"{days}d"
         steps = "/".join(m.timesteps)
+        emits = ", ".join((*m.emitted, *m.emits_routing))
         print(
             f"  {m.name:<24} v{m.version:<8} runner={m.runner:<11} {steps:<22} "
-            f"window={window:<5} emits: {', '.join(m.emitted)}"
+            f"window={window:<5} emits: {emits}"
         )
     return 0
 
@@ -233,12 +234,29 @@ def cmd_verify_adapter(args) -> int:
     if args.probe:
         candidates = [registry.find_probe(args.probe, roots)]
     else:
-        # The closure probe is the reference implementation and the natural
-        # smoke test. A model that cannot consume it, at its step, with its
-        # forcing or on its window, is checked on the first probe it can
-        # consume instead: one it cannot is N/A for it and asks the adapter
-        # nothing.
-        candidates = sorted(probes, key=lambda p: (p.id != "mass/catchment-closure", p.id))
+        if model.emits_routing:
+            # Reach-indexed output can only be verified on a probe that
+            # supplies a routing network. Prefer one when the model declares
+            # routing output, then fall back to the ordinary probe order.
+            candidates = sorted(
+                probes,
+                key=lambda p: (
+                    not bool(p.requires_routing),
+                    p.id != "mass/catchment-closure",
+                    p.id,
+                ),
+            )
+        else:
+            # The closure probe is the reference implementation and the
+            # natural smoke test. A model that cannot consume it is checked
+            # on the first probe it can consume instead.
+            candidates = sorted(
+                probes,
+                key=lambda p: (
+                    p.id != "mass/catchment-closure",
+                    p.id,
+                ),
+            )
 
     workdir = Path(args.workdir) if args.workdir else None
     result = None

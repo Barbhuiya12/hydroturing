@@ -34,19 +34,75 @@ Paths inside `request.json` are relative to the request file's directory.
 ```
 /io/request.json          read-only: opaque case id, model seed, timestep, n_steps, outputs
 /io/input/forcing.csv     read-only: columns time, pr, tas, pet (mm/day, degC, mm/day),
-                          and, when a probe prescribes a human withdrawal, abstr (mm/day, net);
-                          when a probe prescribes an external hydraulic head, gwh (m);
+                          plus any probe-declared forcing. Routing probes may prescribe
+                          q_in (m3/s, positive into the routing control volume);
+                          a human-withdrawal probe may add abstr (mm/day, net);
+                          a head-driven exchange probe may add gwh (m);
                           a groundwater-exchange probe supplies gw_recharge (mm/day)
                           and sw_stage_m (m) instead
 /io/input/static.json     read-only: catchment attributes
 /io/output/result.csv     write: one row per forcing row, spinup included
+/io/output/routing.csv    write when requested: one row per forcing row and reach
 /io/output/run.json       write: {"status": "ok"}
 ```
+
+When `request.request.routing` is non-empty, the adapter must write
+`output/routing.csv` as a long table with one row for every forcing time and
+every reach declared by `static.json` under `routing_network.reaches`. The
+required identifier columns are `time` and `reach_id`; the remaining required
+columns are the names listed in `request.request.routing`.
+
+A probe that declares `requires.routing` must also declare
+`requires.static: [routing_network]`. `routing_network` is an object whose
+`reaches` member is a non-empty list of unique, non-empty string IDs:
+
+```json
+{
+  "routing_network": {
+    "reaches": ["A", "B", "C"]
+  }
+}
+```
+
+Keep topology metadata such as junctions, headwaters, outlets, lengths or
+areas in separate fields under `routing_network`; do not place reach objects
+inside `reaches`. Reach IDs are strings and leading zeros are significant.
+
+For example, the routing table is:
+
+```csv
+time,reach_id,reach_q_in,q_out,channel_storage
+2001-01-01,A,12.3,8.4,336960
+2001-01-01,B,7.1,4.9,190080
+2001-01-01,C,13.3,9.2,354240
+```
+
+Each `(time, reach_id)` pair must be unique. Every declared reach must have
+exactly one row for every forcing row, including spinup, and each reach's time
+axis must match `forcing.csv`. `reach_q_in` and `q_out` are interval-mean discharge
+rates in m3/s. `channel_storage` is the absolute volume stored in that reach at
+the end of the interval, in m3. It is not a tendency and must not be converted
+to catchment-average depth. A missing requested routing column, reach or time
+row is a contract error. Models that do not declare `emits.routing` do not
+write `routing.csv`.
+
+A routing table has `n_steps * n_reaches` rows. Probe authors must set
+`case.max_output_mb` high enough for that table; the normal output size
+allow-list and limit still apply.
+
 
 The model seed is deterministic for reproducible stochastic inference, but it
 is not the generator seed recorded in the host-side report. Exit 0 on success.
 There is no network. Do not attempt to download weights or data at run time;
 bake them into the image.
+
+A routing probe may prescribe `q_in` in the forcing, in m3/s, positive
+into the routing control volume. It is already a discharge rather than a depth
+rate over the catchment: an adapter must map it to the model's river/reach
+inflow without multiplying by catchment area or by the row duration. A model
+that declares `q_in` in `needs_forcing` or `uses_forcing` is asserting that
+its routing process actually consumes that prescribed inflow; merely copying
+the name into the manifest is not enough.
 
 Some probes prescribe a human withdrawal in the forcing as an `abstr` column
 (mm/day, net of return flow). Honouring it means removing that water from the
@@ -157,9 +213,13 @@ numbers in both runs; keep it that way and do not reseed from the clock.
 | Name | Meaning | Units |
 | --- | --- | --- |
 | `pr` | precipitation, echoed back from the forcing | mm/day |
+| `q_in` | prescribed river/upstream inflow supplied to a routing control volume; positive into the reach. It is an input forcing, not an output flux, and a model opts in through `needs_forcing` or `uses_forcing` | m3/s |
 | `evspsbl` | evapotranspiration | mm/day |
 | `mrro` | total runoff | mm/day |
 | `dis` | river discharge | m3/s |
+| `reach_q_in` | interval-mean total inflow into the identified reach control volume, including upstream, lateral, and prescribed boundary inflows; positive into the reach; reach-indexed in `routing.csv`, never a catchment-average flux | m3/s |
+| `q_out` | interval-mean flow across the identified reach's downstream boundary; positive downstream and negative for reverse or backwater flow; reach-indexed in `routing.csv`, never a catchment-average flux | m3/s |
+| `channel_storage` | absolute water volume stored in the routed river channel of the identified reach at the end of the row's time interval; excludes land-surface, soil, groundwater, floodplain, and overland storage; reach-indexed in `routing.csv`, not a tendency and not catchment-average `channel` storage | m3 |
 | `gwex` | a declared exchange with the outside: regional groundwater, inter-basin transfer; positive into the catchment | mm/day |
 | `gw_sw_exchange` | net river-aquifer exchange, positive into the aquifer; unlike `gwex`, this moves water between two stores inside the control volume (`gw` and `channel`), so it is never added to `gwex` or counted as a `closure` source | mm/day |
 | `gw_to_sw` | groundwater-to-river exchange component: the aquifer losing to the river, so it is never positive; a component of `gw_sw_exchange`, not of `gwex`, and not an addition to it | mm/day |
@@ -244,6 +304,28 @@ emits:
   states: []
 ```
 
+A model that also exposes native reach-indexed routing output declares it
+separately from the catchment-level result columns:
+
+```yaml
+emits:
+  fluxes: [mrro, dis]
+  states: [channel]
+  routing: [reach_q_in, q_out, channel_storage]
+needs_static: [routing_network]
+```
+
+Variables declared under `emits.routing` belong in `routing.csv`, not in
+`result.csv`, `emits.fluxes` or `emits.states`. Declaring them means the
+adapter must write the requested long table; do not construct `reach_q_in` or
+`channel_storage` from a budget residual merely to satisfy the contract.
+
+
+A model that declares `emits.routing` must also list `routing_network` in
+`needs_static` or `uses_static`; otherwise the manifest is invalid because the
+routing output has no declared network topology.
+
+
 Every probe that needs more than that will be `N/A` with reason
 `INCOMPLETE`, which is the honest outcome: not a fail, but a probe that
 cannot be put to the model, so it counts neither way. Fabricating an
@@ -254,12 +336,34 @@ is worse and is also dishonest.
 without; a missing input makes the case `N/A (INCOMPATIBLE)`.
 `uses_forcing` and `uses_static` declare optional inputs: the adapter must
 consume them whenever supplied, but can run without them using a documented
-fallback. The one carve-out is `gwh`, the prescribed external head, where the
-declaration is a semantic opt-in rather than a promise about the column: a
+fallback. Some declarations also carry a physical input contract. For
+`gwh`, the prescribed external head, the declaration is a semantic opt-in
+rather than a promise about the column: a
 model may read a head for another purpose, so declaring `gwh` asserts that the
 model's own `gwex` responds monotonically to that head, and
-`mass/exchange-response` holds it to the assertion rather than to the reading. A probe's `requires.forcing` and `requires.static` accept either
-declaration. For example, `energy/radiation-consistency` requires consumption
+`mass/exchange-response` holds it to the assertion rather than to the reading.
+
+A probe that lists `rn` under `requires.forcing`, including the hourly
+`energy/surface-energy-closure`, holds the adapter to a prescribed-`rn`
+contract. Declaring `rn` means accepting the supplied net radiation as the
+external energy input to the reported surface budget. It does not assert that
+the resulting budget closes; that is what the energy criterion tests. An
+adapter that only uses `rn` to construct a reference sky, then lets its model
+compute a different net radiation, must document that mapping without
+declaring prescribed-`rn` support. On such a probe, an adapter with the heat
+outputs but without that declaration is `N/A (INCOMPATIBLE)`. Do not infer
+compatibility from a small residual or turn a large residual into N/A.
+
+The daily `energy/latent-heat-et-consistency` and `energy/evaporative-partition`
+also drive `energy_closure`, and on the partition probe `partition_shift`,
+with `rn`, but do not list it under `requires.forcing`, so they still score an
+adapter that computes its own sky. Daily averaging and the 5% tolerance do
+not remove the input mismatch, so for such an adapter treat those results as
+archived scores whose applicability is not established;
+[#160](https://github.com/Flood-Lab/HydroTuring/issues/160) tracks the fix.
+
+A probe's `requires.forcing` and `requires.static` accept either `needs_*`
+or `uses_*`. For example, `energy/radiation-consistency` requires consumption
 of `rlds` and `eps`; a model that does not declare it consumes both is
 `N/A (INCOMPATIBLE)` because it may be computing its own sky or emissivity.
 
@@ -286,7 +390,10 @@ ht run --model <model-name>              # the actual evaluation
 ```
 
 `verify-adapter` runs a single seed, on the same window the evaluation will
-use, and checks the shape of what came back. Get that green before looking
+use, and checks the shape of what came back. For a model that declares
+`emits.routing`, this includes the presence of `routing.csv`, its requested
+columns, reach IDs, complete time coverage, unique `(time, reach_id)` pairs
+and finite numeric values. Get that green before looking
 at any residual. Without `--probe` it checks the closure probe, or the first
 probe the model can consume when it cannot consume that one: a step it does
 not declare, a forcing or static input the probe does not generate, or a window that drops a

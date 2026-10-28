@@ -49,6 +49,7 @@ HEADLINES = {
     "mass/exchange-response": ("exchange_response",),
     "mass/gw-sw-exchange-consistency": ("exchange_components",),
     "mass/groundwater-datum-invariance": ("datum_flux_invariance",),
+    "mass/aquifer-recharge-ordering": ("aquifer_recharge_ordering",),
     "mass/human-abstraction": ("human_abstraction",),
     "mass/multi-decadal-drift": ("state_bounds", "total_storage_drift"),
     "mass/phase-counterfactual": ("phase_invariance",),
@@ -72,6 +73,7 @@ HEADLINES = {
     ),
     "momentum/stage-discharge-monotonic": ("rating_monotonic", "rating_loop", "non_degenerate"),
     "momentum/uniform-flow-friction-consistency": ("uniform_flow_friction",),
+    "momentum/wave-celerity-bounds": ("wave_celerity_bounds",),
 }
 
 

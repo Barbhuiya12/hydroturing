@@ -64,6 +64,33 @@ diagnostic but omitting it from the output is a protocol error. The separate
 `ts` diagnostic is instantaneous surface temperature for radiative checks;
 it cannot replace the interval-end mean-layer `tsoil_layer`.
 
+Reach-indexed river-network outputs use the optional `routing` group and are
+written separately from the catchment-level result table:
+
+```yaml
+emits:
+  fluxes: [mrro, dis]
+  states: [channel]
+  routing: [reach_q_in, q_out, channel_storage]
+needs_static: [routing_network]
+```
+
+A model that declares `emits.routing` must also list `routing_network` in
+`needs_static` or `uses_static`, so its adapter has the network topology that
+defines the declared reaches.
+
+Variables declared under `emits.routing` belong in `output/routing.csv`, not
+`output/result.csv`. The harness requests them only on a probe that declares
+`requires.routing` and supplies `routing_network.reaches` in `static.json`.
+The routing table contains one row for every forcing time and declared reach.
+
+`reach_q_in` is the interval-mean rate of total inflow into the reach control
+volume, including upstream, lateral, and prescribed boundary inflows, and is
+positive into the reach. `q_out` is the interval-mean flow across the reach's
+downstream boundary, positive downstream and negative for reverse or backwater
+flow. `channel_storage` is the absolute end-of-step channel water volume and
+excludes land-surface, soil, groundwater, floodplain, and overland storage.
+
 The `stage` diagnostic is a water-surface elevation in metres on the fixed
 vertical datum declared by the case. `bed_elevation_m` is the rigid reach bed
 on that same datum, so water depth is `stage - bed_elevation_m` at every step.
@@ -83,10 +110,38 @@ actually consumes, and document their mapping to native parameters. Layer
 metadata makes that mapping auditable; a matching declaration alone does not
 prove that the model used it. See the [soil-storage case](../probes/energy/soil-heat-storage-consistency/README.md).
 
+For a probe that lists `rn` under `requires.forcing`, including the
+[hourly surface-budget probe](../probes/energy/surface-energy-closure/README.md),
+declaring `rn` means the supplied value is the external radiative input to the
+reported surface budget. Use `needs_forcing` if the model requires it to run,
+or `uses_forcing` if it accepts that boundary when supplied and has a
+documented fallback otherwise. This declares the input condition, not
+successful energy conservation. Merely reading `rn` to construct incoming
+shortwave and longwave for a reference surface is insufficient if the model
+then computes different net radiation. Document that mapping without
+declaring prescribed-`rn` support; that probe will report `N/A (INCOMPATIBLE)`
+when the heat outputs are present. Do not alter native heat fluxes to match
+the benchmark's radiation.
+
+The two daily energy probes, `energy/latent-heat-et-consistency` and
+`energy/evaporative-partition`, drive `energy_closure`, and on the partition
+probe `partition_shift`, with `rn` but do not require it, so they still score
+an adapter that computes its own sky. Daily averaging and the 5% tolerance do
+not remove the input mismatch, so treat those results as archived scores whose
+applicability is not established; [#160](https://github.com/Flood-Lab/HydroTuring/issues/160) tracks the fix.
+
+Routing probes may supply `q_in`, a prescribed river inflow in m3/s, positive
+into the routing control volume. This is already a volumetric discharge: do
+not convert it through `area_km2` as though it were a depth rate. A model
+listing `q_in` under `uses_forcing` must map it to a real native
+river/reach-inflow path whenever the column is present.
+
 ## 2. Write the adapter
 
-Read `/io/request.json`, read the forcing, call your model, write the table.
-The plumbing is about thirty lines and does not depend on your model.
+Read `/io/request.json`, read the forcing and static inputs, call your model,
+and write `output/result.csv`. When `request.request.routing` is non-empty,
+also write `output/routing.csv` using the paths declared under
+`request.output`. The plumbing does not otherwise depend on your model.
 
 ```python
 request = json.loads(Path(sys.argv[-1]).read_text())

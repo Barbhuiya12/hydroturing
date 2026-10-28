@@ -103,6 +103,14 @@
           "uniqueItems": true,
           "description": "Diagnostics read by criteria, such as a surface or layer temperature, or the liquid share of a snowpack. Never added to any water-storage sum: `lwsnl` is water, but it is water already counted inside `snw`, so summing it beside `snw` would count the same kilogram twice. Each criterion defines their time handling."
         },
+        "routing": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "uniqueItems": true,
+          "description": "Reach-indexed variables read from output/routing.csv. reach_q_in is total inflow into the reach control volume (upstream, lateral, and prescribed), positive into the reach; q_out crosses the downstream boundary, positive downstream and negative for reverse or backwater flow. Both are interval-mean discharges in m3 s-1. channel_storage is absolute end-of-step channel water volume in m3 and excludes land-surface, soil, groundwater, floodplain, and overland storage."
+        },
         "forcing": {
           "type": "array",
           "items": {
