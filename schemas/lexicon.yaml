@@ -118,6 +118,7 @@ crosswalk:
     canopy: "CanopyLiqWater + CanopyIce"
     ts: "TemperatureRadSfc"
     tsoil_layer: "TemperatureSoil1"
+    csnow: "SnowColdContent"
   vic:
     evspsbl: "OUT_EVAP"
     mrro: "OUT_RUNOFF + OUT_BASEFLOW"

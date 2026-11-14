@@ -57,6 +57,7 @@ the column's soil water and runoff, about the size of single-precision rounding 
 | `mrso` | `SoilMoisture` over layer thickness | liquid and ice |
 | `snw` | `SnowWaterEquiv` | |
 | `canopy` | `CanopyLiqWater + CanopyIce` | |
+| `csnow` | `sum over snow layers (C_ice/rho_ice SnowIce + C_w/rho_w SnowLiqWater) (T_frz - T)` | the pack's cold content, end of step, with the heat capacity `SnowThermalPropertyMod` gives each layer and Noah-MP's `ConstFreezePoint`; zero when there is no snow layer and thin snow sits in the top soil layer |
 
 Nothing is written as an invented zero, and `zero_stores` is empty: Noah-MP has both a snowpack and
 a canopy. On a case whose `canopy_capacity_mm` is zero the column runs as bare ground (below), so

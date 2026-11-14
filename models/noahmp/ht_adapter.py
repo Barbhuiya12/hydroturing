@@ -87,6 +87,9 @@ Fluxes are step means, as rates in mm/day or W m-2; states are end of step.
 * `mrso`        the column's SoilMoisture (liquid and ice) over layer thickness
 * `snw`         SnowWaterEquiv
 * `canopy`      CanopyLiqWater + CanopyIce
+* `csnow`       the snow layers' cold content, end of step: each layer's ice
+                and liquid at Noah-MP's own heat capacities times its depth
+                below ConstFreezePoint; zero with no snow layer
 
 Under the free-drainage runoff option upstream's example selects, the aquifer
 WaterStorageAquifer is a constant 4900 mm that nothing moves: it is not reported
@@ -117,9 +120,9 @@ from pathlib import Path
 
 import numpy as np
 
-MODEL = {"name": "noahmp", "version": "5.2.1-17751dc.5"}
+MODEL = {"name": "noahmp", "version": "5.2.1-17751dc.6"}
 COLUMNS = ["time", "pr", "evspsbl", "mrro", "sbl", "snm", "hfls", "hfss", "hfg", "rlus", "hfg_bottom",
-           "mrso", "snw", "canopy", "ts", "tsoil_layer"]
+           "mrso", "snw", "canopy", "ts", "tsoil_layer", "csnow"]
 
 DRIVER = os.environ.get("NOAHMP_DRIVER", "/opt/noahmp/ht_noahmp_driver")
 SHIPPED = Path(os.environ.get("NOAHMP_SETTINGS", "/opt/noahmp"))
@@ -135,7 +138,7 @@ OUTPUT_NAMES = [
     "RainfallGround", "SnowfallGround", "SublimSnowSfcIce", "FrostSnowSfcIce", "SublimCanopyIce",
     "PondSfcThinSnwMelt", "PondSfcThinSnwComb", "PondSfcThinSnwTrans", "SoilWater", "SnowWaterEquiv", "SnowDepth",
     "CanopyLiqWater", "CanopyIce", "WaterStorageAquifer", "NumSnowLayerNeg", "VegFrac", "VegAreaIndEff",
-    "TemperatureSoil1", "HeatSoil1Bottom", "HeatCapacSoil1", "RainWithoutPack",
+    "TemperatureSoil1", "HeatSoil1Bottom", "HeatCapacSoil1", "RainWithoutPack", "SnowColdContent",
 ]
 
 # Eight significant digits, about what single precision resolves, and single precision is
@@ -454,6 +457,7 @@ def simulate(rows: list[dict], columns: list[str], static: dict, timestep: str, 
         "canopy": out["CanopyLiqWater"] + out["CanopyIce"],
         "ts": out["TemperatureRadSfc"],
         "tsoil_layer": out["TemperatureSoil1"],
+        "csnow": out["SnowColdContent"],
     }
     for name, values in result.items():
         if not np.isfinite(values).all():

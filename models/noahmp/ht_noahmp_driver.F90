@@ -45,11 +45,12 @@ program ht_noahmp_driver
   use WaterVarOutTransferMod
   use BiochemVarOutTransferMod
   use NoahmpMainMod
+  use ConstantDefineMod
 
   implicit none
 
   integer, parameter :: FORCING_COLUMNS = 10
-  integer, parameter :: OUTPUT_COLUMNS = 49
+  integer, parameter :: OUTPUT_COLUMNS = 50
 
   type(NoahmpIO_type) :: NoahmpIO
 
@@ -171,7 +172,7 @@ contains
     endif
     do i = 1, OUTPUT_COLUMNS
        select case (i)
-       case (6, 7, 8, 10, 11, 37:42, 44:46, 48)
+       case (6, 7, 8, 10, 11, 37:42, 44:46, 48, 50)
           ! End of the row: the stores and temperatures, and the emitted longwave
           ! and radiative temperature, which are one instant's identity.
           held(i) = out(i)
@@ -316,7 +317,7 @@ contains
     type(noahmp_type), intent(in) :: noahmp
     real(8), intent(out) :: out(OUTPUT_COLUMNS)
     integer :: k
-    real(8) :: soil_water, flux_bottom
+    real(8) :: soil_water, flux_bottom, cold_content
 
     soil_water = 0.d0
     do k = 1, noahmp%config%domain%NumSoilLayer
@@ -329,6 +330,18 @@ contains
     flux_bottom = 2.d0 * dble(noahmp%energy%state%ThermConductSoilSnow(1)) * &
          (dble(noahmp%energy%state%TemperatureSoilSnow(1)) - dble(noahmp%energy%state%TemperatureSoilSnow(2))) / &
          (-dble(noahmp%config%domain%DepthSoilLayer(2)))
+
+    ! The pack's cold content: what each snow layer's own heat capacity, as
+    ! SnowThermalPropertyMod forms it from its ice and liquid, needs to reach
+    ! the freezing point. Zero with no snow layer, where Noah-MP carries thin
+    ! snow inside the top soil layer and gives it no temperature of its own.
+    cold_content = 0.d0
+    do k = noahmp%config%domain%NumSnowLayerNeg + 1, 0
+       cold_content = cold_content + &
+            (dble(ConstHeatCapacIce) / dble(ConstDensityIce) * dble(noahmp%water%state%SnowIce(k)) + &
+             dble(ConstHeatCapacWater) / dble(ConstDensityWater) * dble(noahmp%water%state%SnowLiqWater(k))) * &
+            max(0.d0, dble(ConstFreezePoint) - dble(noahmp%energy%state%TemperatureSoilSnow(k)))
+    enddo
 
     out = (/ &
          dble(noahmp%forcing%RadSwDownRefHeight), &           !  1
@@ -380,7 +393,8 @@ contains
          flux_bottom, &                                       ! 47
          dble(noahmp%energy%state%HeatCapacSoilSnow(1)), &    ! 48
          merge(dble(noahmp%water%flux%RainfallGround), 0.d0, &
-               noahmp%config%domain%NumSnowLayerNeg == 0) /)  ! 49
+               noahmp%config%domain%NumSnowLayerNeg == 0), &  ! 49
+         cold_content /)                                      ! 50
   end subroutine read_column
 
 end program ht_noahmp_driver
