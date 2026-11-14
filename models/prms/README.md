@@ -39,6 +39,7 @@ PRMS works in inches, so every value goes through `statvar`, which prints six de
 | `canopy` | `basin_intcp_stor` | |
 | `gw` | `basin_gwstor` | |
 | `channel` | `basin_segment_storage` | PRMS's cumulative inflow minus outflow of the segment |
+| `csnow` | `pk_def` × 41,840 | `snowcomp`'s heat deficit, in Langleys (cal/cm²), the energy the pack takes in before any of it melts; one Langley is 41,840 J/m² |
 
 That answers the proposal review's second and third questions: `mrro` is separate from `dis`, and
 both `gw` and `channel` are exposed. `mrro` is routed runoff. Upstream's pre-routing term

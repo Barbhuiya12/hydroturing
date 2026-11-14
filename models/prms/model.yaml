@@ -1,5 +1,5 @@
 name: prms
-version: "6.0.0-ht.4"
+version: "6.0.0-ht.5"
 description: >
   PRMS, the USGS Precipitation-Runoff Modeling System (Markstrom et al. 2015): a
   modular HRU model with interception, an energy-balance snowpack, contributing-area
@@ -8,7 +8,8 @@ description: >
   run as one HRU on one stream segment with PRMS's own declared parameter defaults and
   capacities taken from the case. Precipitation and PET go in directly through the
   climate_hru module; the rest it needs from the sky is mocked from each row, and
-  README.md says how and what that moves. Water only, so the heat-flux probes are N/A.
+  README.md says how and what that moves. No heat fluxes, so the probes that need them are
+  N/A; snowcomp's heat deficit is reported as csnow, so energy/snowpack-ripening scores it.
   PRMS is daily and has no other step.
 authors:
   - "S. L. Markstrom, R. S. Regan, L. E. Hay, R. J. Viger, R. M. T. Webb, R. A. Payn, J. H. LaFontaine (PRMS-IV); George Leavesley and USGS PRMS developers"
@@ -25,6 +26,7 @@ timestep: PT1D
 emits:
   fluxes: [pr, evspsbl, mrro, dis, gwex, snm, sbl]
   states: [mrso, snw, canopy, gw, channel]
+  diagnostics: [csnow]
 
 needs_forcing: [pr, tas, pet]
 uses_forcing: [abstr]

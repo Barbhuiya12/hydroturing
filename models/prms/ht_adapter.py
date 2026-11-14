@@ -44,20 +44,21 @@ import time
 from datetime import date, datetime, timedelta
 from pathlib import Path
 
-MODEL = {"name": "prms", "version": "6.0.0-ht.4"}
+MODEL = {"name": "prms", "version": "6.0.0-ht.5"}
 
 NOT_REPORTED = {
     "basin_imperv_stor": "no impervious area (hru_percent_imperv = 0), so identically zero",
     "depression storage": "dprst_flag = 0",
 }
 COLUMNS = ["time", "pr", "evspsbl", "mrro", "dis", "gwex", "snm", "sbl",
-           "mrso", "snw", "canopy", "gw", "channel"]
+           "mrso", "snw", "canopy", "gw", "channel", "csnow"]
 
 PRMS_EXE = os.environ.get("PRMS_EXE", "/opt/prms/bin/prms")
 WORK = Path(os.environ.get("PRMS_WORKDIR", "/tmp/prms"))
 DIAG = os.environ.get("HT_PRMS_DIAG", "0") == "1"
 
 MM_PER_INCH = 25.4
+J_M2_PER_LANGLEY = 41840.0  # 1 cal/cm2
 ACRES_PER_KM2 = 247.10538146717
 STEP_DAYS = {"PT1D": 1.0, "PT1H": 1.0 / 24.0, "PT15M": 1.0 / 96.0, "PT5M": 1.0 / 288.0, "PT1M": 1.0 / 1440.0}
 
@@ -98,6 +99,7 @@ STAT_VARS = [
     ("basin_sroff", 1), ("basin_ssflow", 1), ("basin_gwflow", 1), ("basin_potet", 1), ("basin_gwin", 1),
     ("snowmelt", 1), ("net_rain", 1), ("net_snow", 1), ("pk_precip", 1),
     ("pptmix_nopack", 1), ("intcp_form", 1), ("hru_intcpevap", 1), ("snow_evap", 1),
+    ("pk_def", 1),
 ]
 
 
@@ -449,6 +451,9 @@ def simulate(rows: list[dict], fieldnames: list[str], static: dict, timestep: st
         "canopy": [v * MM_PER_INCH for v in out["basin_intcp_stor"]],
         "gw": [v * MM_PER_INCH for v in out["basin_gwstor"]],
         "channel": [v * MM_PER_INCH for v in out["basin_segment_storage"]],
+        # snowcomp's heat deficit, the energy the pack must take in before any
+        # of it melts, in Langleys; the contract's cold content is J/m2.
+        "csnow": [v * J_M2_PER_LANGLEY for v in out["pk_def"]],
     }
 
     # The same quantum at the top of the interception store: a canopy at capacity can print
@@ -497,6 +502,7 @@ def simulate(rows: list[dict], fieldnames: list[str], static: dict, timestep: st
                    "gwex": "- basin_gwsink - the abstr PRMS removed through gwr_transfer",
                    "snm": "snowmelt + net_rain where compute_infil passes it around the pack",
                    "sbl": "snow_evap + hru_intcpevap when intcp_form is snow"},
+        "diagnostics": {"csnow": "pk_def (snowcomp's heat deficit, Langleys) x 41840 J/m2"},
         "water_budget": {
             "max_abs_step_residual_mm": max(abs(v) for v in residuals) if residuals else 0.0,
             "cumulative_residual_mm": sum(residuals),

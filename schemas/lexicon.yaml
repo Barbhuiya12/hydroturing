@@ -356,6 +356,7 @@ crosswalk:
     canopy: "basin_intcp_stor"
     gw: "basin_gwstor"
     channel: "basin_segment_storage"
+    csnow: "pk_def * 41840"
   mhm:
     evspsbl: "L1_aETSoil * fn + L1_aETCanopy + L1_aETSealed * fs"
     mrro: "mRM_runoff / area_mhm_km2"
