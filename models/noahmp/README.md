@@ -7,7 +7,7 @@ Valmik Nahata as [Flood-Lab/HydroTuring#59](https://github.com/Flood-Lab/HydroTu
 UCAR open-source licence, for Noah-MP and for HRLDAS; the image carries both at
 `/model/LICENSE.noahmp.txt` and `/model/LICENSE.hrldas.txt`, and is never pushed to a registry.
 
-**Result, version `5.2.1-17751dc.5`: FAIL (VIOLATION), 17 PASS, 8 FAIL, 12 N/A.** Its water budget
+**Result, version `5.2.1-17751dc.6`: FAIL (VIOLATION), 19 PASS, 8 FAIL, 13 N/A.** Its water budget
 closes on every record. Noah-MP cannot take one step per daily row, so under the `substep` rule in
 AGENTS.md a daily row is held flat for 24 hourly Noah-MP steps, and every daily verdict here describes
 that. See [the verdicts](#verdicts) for what each failure is and is not.
@@ -224,8 +224,9 @@ above a temperature-dependent latent heat at these temperatures.
 
 ## Verdicts
 
-Run through the harness on the gate seeds, with `window_days: full`, under Docker on Apple Silicon at `3e86a79`, version
-`5.2.1-17751dc.5`. Numbers quoted without a probe's own report are direct runs of an earlier image, which differs in
+Run through the harness on the gate seeds, with `window_days: full`, under Docker on Apple Silicon at `1440e94`, version
+`5.2.1-17751dc.6`. Every row but `energy/snowpack-ripening` is identical to `5.2.1-17751dc.5` at `3e86a79`,
+which did not report `csnow` and was N/A there. Numbers quoted without a probe's own report are direct runs of an earlier image, which differs in
 the 1 part per million above and in `hfg_bottom` under snow, which no daily probe reads.
 
 | Probe | Verdict | Number | Mechanism |
@@ -241,18 +242,19 @@ the 1 part per million above and in `hfg_bottom` under snow, which no daily prob
 | `mass/catchment-closure` | PASS | closure 0.0063 percent of rain | **The budget closes:** 0.13 to 0.86 mm of 7700 to 8630 mm over ten years, and upstream's own error is at most 0.002 mm per step. It failed until `et_plausible` was corrected at `dc9836c`, which read a row's minimum: ET is negative on 7 to 58 rows, at worst -0.28 mm/day, because `evspsbl` is net of dew and frost, under a mocked 70 percent humidity. Verified that it is net condensation, which the lexicon allows. The criterion now reads cumulative ET |
 | `energy/radiation-consistency` | PASS | worst step 0.01 of tolerance (-0.035 W m-2 against 2.66) | **Trivial.** `EnergyMain` computes `TemperatureRadSfc` by inverting this identity from `RadLwEmitSfc` (verified in source). Only two things are tested: that `eps` reaches `EmissivitySfc`, and the time labelling |
 | `energy/soil-heat-storage-consistency` | PASS | worst phase 0.035 W m-2 against 1 | Implicit solver's own consistency: the flux uses its conductivity and end-of-step temperatures. The capacity was set from the case. Inferred |
+| `energy/snowpack-ripening` | PASS | 0.0 mm left the pack while it held cold content (933 mm peak, limit 5 percent) | `csnow` is summed over the snow layers from each layer's ice, liquid and temperature, the heat capacities Noah-MP itself uses. Nothing drains from a pack that is still below freezing |
 | `mass/resolution-invariance` | PASS | worst `mrso_end` 1.857 percent of rain, limit 10 | Not trivial: hourly against minute, volumes move by about 1 percent of rain. Says nothing about a daily row |
 
-**Also PASS, 13:** `energy/pet-consistency`, `mass/area-invariance` (trivial, area never enters), `mass/causality`,
-`mass/extreme-event-closure`, `mass/extreme-rain`, `mass/phase-counterfactual`, `mass/precipitation-counterfactual`,
+**Also PASS, 14:** `energy/pet-consistency`, `mass/area-invariance` (trivial, area never enters), `mass/causality`,
+`mass/extreme-event-closure`, `mass/extreme-rain`, `mass/interception-response`, `mass/phase-counterfactual`, `mass/precipitation-counterfactual`,
 `mass/response-nonnegativity`, `mass/runoff-bounds`, `mass/snowpack-mass-closure`, `mass/spinup-cycle-invariance`,
 `mass/time-origin-invariance` and `mass/warming-response`.
 
 **N/A (INCOMPATIBLE), 2.** `rn` not consumed: `energy/surface-energy-closure`. Channel geometry not consumed:
 `momentum/routing-lag-consistency`.
 
-**N/A (INCOMPLETE), 10.** Variables Noah-MP does not report here: `energy/snowmelt-energy-water`,
-`mass/aquifer-recharge-ordering`, `mass/exchange-response`, `mass/groundwater-datum-invariance`,
+**N/A (INCOMPLETE), 11.** Variables Noah-MP does not report here: `energy/snowmelt-energy-water`,
+`mass/aquifer-equilibrium-bounds`, `mass/aquifer-recharge-ordering`, `mass/exchange-response`, `mass/groundwater-datum-invariance`,
 `mass/gw-sw-exchange-consistency`, `momentum/froude-regime`, `momentum/routing-conservation`,
 `momentum/stage-discharge-monotonic`, `momentum/uniform-flow-friction-consistency`,
 `momentum/wave-celerity-bounds`.

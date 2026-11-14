@@ -67,8 +67,8 @@ would read here as drainage from a pack that had not ripened. That is a
 difference in the process assumed, not a violation of conservation.
 
 No model that reports `snm` and `csnow` represents preferential flow today:
-Snow-17, the energy-balance reference and the two broken references all route
-matrix flow. If one is submitted, whether it is scored here is a maintainer
+Snow-17, PRMS's `snowcomp`, Noah-MP's layered pack, the energy-balance reference
+and the two broken references all route matrix flow. If one is submitted, whether it is scored here is a maintainer
 decision to take on its proposal issue before its rows are archived, because
 the harness would otherwise record the exceedance as FAIL (VIOLATION). The
 probe adds no declaration for it. A flag a model sets for itself is a way out

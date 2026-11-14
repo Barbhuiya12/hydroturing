@@ -142,8 +142,9 @@ The proposal asked for a 30-day window; the manifest uses `window_days: full`, b
 
 ## Evaluation
 
-Gate seeds, all 37 probes, version `6.0.0-ht.4`: **20 PASS, 2 FAIL, 15 N/A** (12 INCOMPLETE,
-3 INCOMPATIBLE). This is the full table:
+Gate seeds, all 40 probes, version `6.0.0-ht.5`: **22 PASS, 2 FAIL, 16 N/A** (13 INCOMPLETE,
+3 INCOMPATIBLE). Every row but `energy/snowpack-ripening` is identical to `6.0.0-ht.4`, which
+did not report `csnow` and was N/A there. This is the full table:
 
 | Probe | Verdict | Number |
 | --- | --- | --- |
@@ -165,13 +166,15 @@ Gate seeds, all 37 probes, version `6.0.0-ht.4`: **20 PASS, 2 FAIL, 15 N/A** (12
 | `mass/resolution-invariance` | PASS | 6.53% of the rain between PT1H and PT1D, worst of 3 seeds, limit 10% |
 | `mass/area-invariance` | PASS | 0, by construction |
 | `mass/time-origin-invariance` | PASS | 0 |
+| `mass/interception-response` | PASS | capacity 2 to 10 mm: evaporation +59.26 mm, runoff -47.50 mm, residual 0.00 mm against 2.96 mm |
 | `energy/pet-consistency` | PASS | 1.00 of potential wet, 0.26 dry |
+| `energy/snowpack-ripening` | PASS | 0.0 mm left the pack while it held cold content (945 mm peak, limit 5%) |
 | `momentum/routing-conservation` | PASS | channel non-negative |
 | `mass/human-abstraction` | **FAIL** | 28.73% of the withdrawal unaccounted for, limit 5% |
 | `mass/ungauged-basin-closure` | **FAIL** | `channel` reaches -0.000508 mm |
 
 N/A (INCOMPLETE, a variable PRMS does not report or an input it does not consume): the six other
-energy probes, `aquifer-recharge-ordering`, `groundwater-datum-invariance`,
+energy probes, `aquifer-equilibrium-bounds`, `aquifer-recharge-ordering`, `groundwater-datum-invariance`,
 `gw-sw-exchange-consistency`, `froude-regime`, `stage-discharge-monotonic`,
 `uniform-flow-friction-consistency`. N/A (INCOMPATIBLE): `exchange-response` (`gwex` here is a
 withdrawal, not head-driven, so `gwh` is not declared), `routing-lag-consistency`,
